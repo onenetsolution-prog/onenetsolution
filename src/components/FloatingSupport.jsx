@@ -9,12 +9,18 @@ export default function FloatingSupport() {
   const { data: settings } = useQuery({
     queryKey: ['app-settings'],
     queryFn: async () => {
-      const { data } = await supabase
-        .from('app_settings')
-        .select('*')
-        .eq('settings_key', 'main')
-        .single();
-      return data;
+      try {
+        const { data, error } = await supabase
+          .from('app_settings')
+          .select('*')
+          .eq('settings_key', 'main')
+          .maybeSingle();
+        if (error) throw error;
+        return data;
+      } catch (err) {
+        console.error('Failed to fetch app settings:', err);
+        return null;
+      }
     }
   });
 

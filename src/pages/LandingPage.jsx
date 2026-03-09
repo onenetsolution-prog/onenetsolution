@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   FileText, IndianRupee, Printer, BarChart3, Shield,
   ChevronRight, Menu, X, Check, ArrowRight,
-  Zap, Globe, Star, MessageCircle, Cpu
+  Zap, Globe, Star, Cpu
 } from 'lucide-react';
 import { useAppSettings } from '../hooks/useAppSettings';
 import { getServerDateObject } from '../hooks/useServerTime';
@@ -721,14 +721,8 @@ const CSS = `
     animation: floatIn 0.6s ease both;
   }
   
-  .float-btn-whatsapp {
-    bottom: 28px; right: 28px;
-    background: linear-gradient(135deg, #25d366, #1eaa54);
-    animation-delay: 0s;
-  }
-  
   .float-btn-ai {
-    bottom: 100px; right: 28px;
+    bottom: 140px; right: 28px;
     background: linear-gradient(135deg, var(--indigo), var(--indigo-d));
     animation-delay: 0.1s;
   }
@@ -745,8 +739,7 @@ const CSS = `
   
   @media (max-width:768px) {
     .float-btn { width: 48px; height: 48px; }
-    .float-btn-whatsapp { bottom: 20px; right: 20px; }
-    .float-btn-ai { bottom: 80px; right: 20px; }
+    .float-btn-ai { bottom: 110px; right: 20px; }
   }
 `;
 
@@ -794,7 +787,6 @@ export default function LandingPage() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openFaq,    setOpenFaq]   = useState(null);
   const settings = useAppSettings();
-  const whatsapp_number = settings?.whatsapp_number;
   const rafRef = useRef(null);
 
   useEffect(() => {
@@ -1217,18 +1209,6 @@ export default function LandingPage() {
       </footer>
 
       {/* FLOATING ACTION BUTTONS */}
-      {whatsapp_number && (
-        <a 
-          href={`https://wa.me/${whatsapp_number.replace(/\D/g, '')}`} 
-          target="_blank" 
-          rel="noopener noreferrer"
-          title={`Chat on WhatsApp: ${whatsapp_number}`}
-        >
-          <button className="float-btn float-btn-whatsapp">
-            <MessageCircle size={24} fill="currentColor"/>
-          </button>
-        </a>
-      )}
     </>
   );
 }

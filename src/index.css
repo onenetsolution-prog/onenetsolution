@@ -42,8 +42,8 @@ body {
 /* ─── App Shell ─── */
 .app-shell    { display: flex; width: 100vw; height: 100vh; overflow: hidden; }
 .main-content { flex: 1; min-width: 0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-.page-scroll  { flex: 1; overflow-y: auto; overflow-x: hidden; }
-.page-container { padding: 20px 24px; width: 100%; animation: fadeIn 0.2s ease; }
+.page-scroll  { flex: 1; overflow-y: auto; overflow-x: hidden; position: relative; z-index: 1; }
+.page-container { padding: 20px 24px; width: 100%; animation: fadeIn 0.2s ease; position: relative; z-index: 1; }
 
 /* ─── Sidebar ─── */
 .sidebar {
@@ -56,6 +56,7 @@ body {
   flex-direction: column;
   position: relative;
   overflow: hidden;
+  z-index: 40;
 }
 .sidebar::before {
   content: '';
@@ -97,6 +98,10 @@ body {
   transition: all 0.15s ease;
   text-decoration: none;
   border-left: 3px solid transparent;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 .nav-item:hover { background: rgba(255,255,255,0.06); color: #fff; }
 .nav-item.active {
@@ -451,6 +456,7 @@ tbody tr:hover { background: var(--ink-50); }
   .admin-time-section { display: none !important; height: 0; margin: 0; }
   .user-time-section { display: none !important; height: 0; margin: 0; }
   .plan-badge { font-size: 10px; padding: 3px 8px; }
+  .nav-item { font-size: 12.5px; padding: 8px 10px; }
 }
 
 @media (max-width: 640px) {
@@ -462,6 +468,9 @@ tbody tr:hover { background: var(--ink-50); }
   .topbar-title { font-size: 12px; }
   .stats-grid { grid-template-columns: 1fr; gap: 10px; }
   .stat-card { padding: 14px; }
+  .nav-item { font-size: 12px; padding: 8px 10px; gap: 8px; }
+  .nav-item svg { width: 14px; height: 14px; }
+  .sidebar-nav { padding: 8px; }
   .stat-value { font-size: 20px; }
   .stat-label { font-size: 9px; }
   .page-title { font-size: 18px; }

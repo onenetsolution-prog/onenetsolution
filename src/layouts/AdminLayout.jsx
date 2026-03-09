@@ -72,11 +72,19 @@ export default function AdminLayout() {
   const { data: usersCount = 0 } = useQuery({
     queryKey: ['admin-users-count', user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase.from('profiles').select('id');
-      if (error) return 0;
-      // Filter out the admin user
-      const nonAdminUsers = (data || []).filter(u => u.id !== user?.id);
-      return nonAdminUsers.length;
+      try {
+        const { data, error } = await supabase.from('profiles').select('id, full_name, email').order('created_at', { ascending: false });
+        if (error) {
+          console.warn('Failed to fetch users count:', error);
+          return 0;
+        }
+        // Count all non-admin users (exclude the admin)
+        const nonAdminUsers = (data || []).filter(u => u.email !== ADMIN_EMAIL);
+        return nonAdminUsers.length;
+      } catch (err) {
+        console.error('Error fetching users count:', err);
+        return 0;
+      }
     },
     staleTime: 60000,
     enabled: !!user?.id,

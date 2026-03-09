@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { lazy, Suspense } from 'react';
 import { Toaster } from 'sonner';
 import { useServerTime } from './hooks/useServerTime';
 import { activateServerTimeEnforcement } from './utils/serverTimeEnforcement';
@@ -15,40 +16,40 @@ import AIChatbot from './components/AIChatbot';
 activateServerTimeEnforcement();
 
 // Landing
-import LandingPage from './pages/LandingPage';
+const LandingPage = lazy(() => import('./pages/LandingPage'));
 
 // Layouts
-import UserLayout  from './layouts/UserLayout';
-import AdminLayout from './layouts/AdminLayout';
+const UserLayout  = lazy(() => import('./layouts/UserLayout'));
+const AdminLayout = lazy(() => import('./layouts/AdminLayout'));
 
 // Auth
-import Login          from './pages/auth/Login';
-import Signup         from './pages/auth/Signup';
-import ForgotPassword from './pages/auth/ForgotPassword';
-import ResetPassword  from './pages/auth/ResetPassword';
+const Login          = lazy(() => import('./pages/auth/Login'));
+const Signup         = lazy(() => import('./pages/auth/Signup'));
+const ForgotPassword = lazy(() => import('./pages/auth/ForgotPassword'));
+const ResetPassword  = lazy(() => import('./pages/auth/ResetPassword'));
 
 // User Pages
-import Dashboard       from './pages/user/Dashboard';
-import NewEntry        from './pages/user/NewEntry';
-import AllEntries      from './pages/user/AllEntries';
-import PendingWork     from './pages/user/PendingWork';
-import PendingPayments from './pages/user/PendingPayments';
-import Invoice         from './pages/user/Invoice';
-import CustomerSearch  from './pages/user/CustomerSearch';
-import Reports         from './pages/user/Reports';
-import Profile         from './pages/user/Profile';
+const Dashboard       = lazy(() => import('./pages/user/Dashboard'));
+const NewEntry        = lazy(() => import('./pages/user/NewEntry'));
+const AllEntries      = lazy(() => import('./pages/user/AllEntries'));
+const PendingWork     = lazy(() => import('./pages/user/PendingWork'));
+const PendingPayments = lazy(() => import('./pages/user/PendingPayments'));
+const Invoice         = lazy(() => import('./pages/user/Invoice'));
+const CustomerSearch  = lazy(() => import('./pages/user/CustomerSearch'));
+const Reports         = lazy(() => import('./pages/user/Reports'));
+const Profile         = lazy(() => import('./pages/user/Profile'));
 
 // Admin Pages
-import AdminDashboard       from './pages/admin/AdminDashboard';
-import AdminUsers           from './pages/admin/AdminUsers';
-import AdminServices        from './pages/admin/AdminServices';
-import AdminEntries         from './pages/admin/AdminEntries';
-import AdminPendingWork     from './pages/admin/AdminPendingWork';
-import AdminPendingPayments from './pages/admin/AdminPendingPayments';
-import AdminCustomerSearch  from './pages/admin/AdminCustomerSearch';
-import AdminReports         from './pages/admin/AdminReports';
-import AdminNotifications   from './pages/admin/AdminNotifications';
-import AdminSettings        from './pages/admin/AdminSettings';
+const AdminDashboard       = lazy(() => import('./pages/admin/AdminDashboard'));
+const AdminUsers           = lazy(() => import('./pages/admin/AdminUsers'));
+const AdminServices        = lazy(() => import('./pages/admin/AdminServices'));
+const AdminEntries         = lazy(() => import('./pages/admin/AdminEntries'));
+const AdminPendingWork     = lazy(() => import('./pages/admin/AdminPendingWork'));
+const AdminPendingPayments = lazy(() => import('./pages/admin/AdminPendingPayments'));
+const AdminCustomerSearch  = lazy(() => import('./pages/admin/AdminCustomerSearch'));
+const AdminReports         = lazy(() => import('./pages/admin/AdminReports'));
+const AdminNotifications   = lazy(() => import('./pages/admin/AdminNotifications'));
+const AdminSettings        = lazy(() => import('./pages/admin/AdminSettings'));
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30000 } }
@@ -122,53 +123,59 @@ function AppRoutesWithServerTime() {
 
   if (!user) {
     return (
-      <Routes>
-        <Route path="/"                element={<LandingPage />} />
-        <Route path="/login"           element={<Login />} />
-        <Route path="/signup"          element={<Signup />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password"  element={<ResetPassword />} />
-        <Route path="*"                element={<Navigate to="/" replace />} />
-      </Routes>
+      <Suspense fallback={<LoadingSpinner />}>
+        <Routes>
+          <Route path="/"                element={<LandingPage />} />
+          <Route path="/login"           element={<Login />} />
+          <Route path="/signup"          element={<Signup />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password"  element={<ResetPassword />} />
+          <Route path="*"                element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
     );
   }
 
   if (showUserLayout) {
     return (
-      <Routes>
-        <Route path="/" element={<UserLayout />}>
-          <Route index element={<Dashboard />} />
-          <Route path="dashboard"        element={<Dashboard />} />
-          <Route path="new-entry"        element={<NewEntry />} />
-          <Route path="entries"          element={<AllEntries />} />
-          <Route path="pending-work"     element={<PendingWork />} />
-          <Route path="pending-payments" element={<PendingPayments />} />
-          <Route path="invoice"          element={<Invoice />} />
-          <Route path="customer-search"  element={<CustomerSearch />} />
-          <Route path="reports"          element={<Reports />} />
-          <Route path="profile"          element={<Profile />} />
-        </Route>
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <Suspense fallback={<LoadingSpinner />}>
+        <Routes>
+          <Route path="/" element={<UserLayout />}>
+            <Route index element={<Dashboard />} />
+            <Route path="dashboard"        element={<Dashboard />} />
+            <Route path="new-entry"        element={<NewEntry />} />
+            <Route path="entries"          element={<AllEntries />} />
+            <Route path="pending-work"     element={<PendingWork />} />
+            <Route path="pending-payments" element={<PendingPayments />} />
+            <Route path="invoice"          element={<Invoice />} />
+            <Route path="customer-search"  element={<CustomerSearch />} />
+            <Route path="reports"          element={<Reports />} />
+            <Route path="profile"          element={<Profile />} />
+          </Route>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
     );
   }
 
   return (
-    <Routes>
-      <Route path="/admin" element={<AdminLayout />}>
-        <Route index                   element={<AdminDashboard />} />
-        <Route path="users"            element={<AdminUsers />} />
-        <Route path="services"         element={<AdminServices />} />
-        <Route path="entries"          element={<AdminEntries />} />
-        <Route path="pending-work"     element={<AdminPendingWork />} />
-        <Route path="pending-payments" element={<AdminPendingPayments />} />
-        <Route path="customer-search"  element={<AdminCustomerSearch />} />
-        <Route path="reports"          element={<AdminReports />} />
-        <Route path="notifications"    element={<AdminNotifications />} />
-        <Route path="settings"         element={<AdminSettings />} />
-      </Route>
-      <Route path="*" element={<Navigate to="/admin" replace />} />
-    </Routes>
+    <Suspense fallback={<LoadingSpinner />}>
+      <Routes>
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route index                   element={<AdminDashboard />} />
+          <Route path="users"            element={<AdminUsers />} />
+          <Route path="services"         element={<AdminServices />} />
+          <Route path="entries"          element={<AdminEntries />} />
+          <Route path="pending-work"     element={<AdminPendingWork />} />
+          <Route path="pending-payments" element={<AdminPendingPayments />} />
+          <Route path="customer-search"  element={<AdminCustomerSearch />} />
+          <Route path="reports"          element={<AdminReports />} />
+          <Route path="notifications"    element={<AdminNotifications />} />
+          <Route path="settings"         element={<AdminSettings />} />
+        </Route>
+        <Route path="*" element={<Navigate to="/admin" replace />} />
+      </Routes>
+    </Suspense>
   );
 }
 

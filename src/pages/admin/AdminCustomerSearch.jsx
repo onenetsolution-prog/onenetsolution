@@ -582,11 +582,17 @@ export default function AdminCustomerSearch() {
   });
 
   // ── Custom services fetch (for field ID → label resolution) ───────────────
-  const { data: allServices = [] } = useQuery({
+  const { data: allServices = [], refetch: refetchServices } = useQuery({
     queryKey: ['admin-all-services-search'],
     queryFn: async () => {
-      const { data } = await supabase.from('custom_services').select('*');
-      return data || [];
+      try {
+        const { data, error } = await supabase.from('custom_services').select('*');
+        if (error) throw error;
+        return data || [];
+      } catch (err) {
+        console.error('Failed to fetch services:', err);
+        return [];
+      }
     },
     enabled: isAdmin,
     staleTime: 5 * 60 * 1000,
@@ -802,7 +808,7 @@ export default function AdminCustomerSearch() {
 
       {/* ── Sticky search + filter bar ────────────────────────────────────── */}
       <div style={{
-        position: 'sticky', top: 0, zIndex: 50,
+        position: 'sticky', top: 0, zIndex: 5,
         background: 'rgba(248,249,250,0.95)', backdropFilter: 'blur(8px)',
         paddingTop: 8, paddingBottom: 12, marginBottom: 8,
       }}>

@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'sonner';
 import { Navigate } from 'react-router-dom';
-import { Search, Eye, Trash2, X, Download, RefreshCw } from 'lucide-react';
+import { Search, Eye, Trash2, X, Download, RefreshCw, Pencil } from 'lucide-react';
 import { format } from 'date-fns';
 import { getServerTimestamp, getServerDateObject } from '../../hooks/useServerTime';
 

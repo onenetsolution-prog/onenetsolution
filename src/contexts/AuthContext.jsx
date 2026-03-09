@@ -12,11 +12,12 @@ export function AuthProvider({ children }) {
 
   const fetchProfile = async (userId) => {
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('profiles')
-        .select('*')
+        .select('id, full_name, business_name, mobile, plan, expiry_date, account_status, trial_start_date, address, gst_number, pan_number, gst_enabled, upi_id, upi_name, upi_mobile, created_at')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
+      if (error) throw error;
       if (data) {
         if (!data.trial_start_date) {
           const serverDate = getServerDate();
@@ -26,9 +27,13 @@ export function AuthProvider({ children }) {
           data.trial_start_date = serverDate;
         }
         setProfile(data);
+      } else {
+        console.log('Profile not found for user:', userId);
+        setProfile(null);
       }
     } catch (err) {
-      console.log('Profile fetch error:', err);
+      console.error('Profile fetch error:', err);
+      setProfile(null);
     } finally {
       setLoading(false);
     }

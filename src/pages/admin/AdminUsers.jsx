@@ -41,12 +41,19 @@ export default function AdminUsers() {
   const { data: users = [], isLoading } = useQuery({
     queryKey: ['admin-users'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('profiles').select('*')
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return (data || []).filter(u => u.id !== user.id);
-    }
+      try {
+        const { data, error } = await supabase
+          .from('profiles').select('id, full_name, business_name, mobile, plan, account_status, expiry_date, address, created_at')
+          .order('created_at', { ascending: false });
+        if (error) throw error;
+        return (data || []).filter(u => u.id !== user.id);
+      } catch (err) {
+        console.error('Failed to fetch users:', err);
+        return [];
+      }
+    },
+    staleTime: 60000,
+    refetchOnWindowFocus: false
   });
 
   // ── Entry counts per user ────────────────────────────────────────────────
@@ -59,7 +66,9 @@ export default function AdminUsers() {
       const counts = {};
       (data || []).forEach(e => { counts[e.user_id] = (counts[e.user_id] || 0) + 1; });
       return counts;
-    }
+    },
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false
   });
 
   // ── App settings ─────────────────────────────────────────────────────────
@@ -68,9 +77,11 @@ export default function AdminUsers() {
     queryFn: async () => {
       const { data } = await supabase
         .from('app_settings').select('*')
-        .eq('settings_key', 'main').single();
+        .eq('settings_key', 'main').maybeSingle();
       return data;
-    }
+    },
+    staleTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false
   });
 
   // ── Payment history ──────────────────────────────────────────────────────
@@ -85,7 +96,8 @@ export default function AdminUsers() {
       if (error) throw error;
       return data || [];
     },
-    enabled: !!historyUser?.id
+    enabled: !!historyUser?.id,
+    staleTime: 60000
   });
 
   // ── Update user profile ──────────────────────────────────────────────────

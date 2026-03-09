@@ -179,8 +179,14 @@ export default function UserLayout() {
   const { data: profile } = useQuery({
     queryKey: ['my-profile', user?.id],
     queryFn: async () => {
-      const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
-      return data;
+      try {
+        const { data, error } = await supabase.from('profiles').select('id, full_name, business_name, mobile, plan, expiry_date, account_status, trial_start_date, address, gst_number, pan_number, gst_enabled, upi_id, upi_name, upi_mobile, created_at').eq('id', user.id).maybeSingle();
+        if (error) throw error;
+        return data;
+      } catch (err) {
+        console.error('Failed to fetch profile:', err);
+        return null;
+      }
     },
     enabled: !!user?.id,
     refetchInterval: 30000,
@@ -333,7 +339,7 @@ export default function UserLayout() {
 
           {/* Business Name — big and bold */}
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{
+            <div className="topbar-business-name" style={{
               fontSize: 20, fontWeight: 900, color: 'var(--ink-900)',
               letterSpacing: '-0.5px', lineHeight: 1.1,
               fontFamily: "'DM Sans', 'Segoe UI', sans-serif",
@@ -350,7 +356,7 @@ export default function UserLayout() {
           </div>
 
           {/* ── Right side chips ── */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+          <div className="topbar-chips" style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
 
             {/* Today's entries chip */}
             <div style={{
@@ -381,6 +387,7 @@ export default function UserLayout() {
             <button
               onClick={() => navigate('/new-entry')}
               title="New Entry"
+              className="topbar-new-btn"
               style={{
                 display: 'flex', alignItems: 'center', gap: 6,
                 background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
@@ -393,7 +400,7 @@ export default function UserLayout() {
               onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(99,102,241,0.35)'; }}
             >
               <PlusCircle size={14} />
-              <span>New</span>
+              <span className="topbar-new-text">New</span>
             </button>
 
             {/* Notification bell */}
@@ -517,6 +524,15 @@ export default function UserLayout() {
         <SubscriptionLimitBlock profile={profile} settings={settings} onSignOut={handleSignOut} />
       )}
       <FloatingSupport />
+      <style>{`
+        @media (max-width: 768px) {
+          .user-time-section { display: none !important; }
+          .topbar-business-name { font-size: 15px !important; }
+          .topbar-chips { gap: 6px !important; }
+          .topbar-new-btn { padding: 7px 7px !important; }
+          .topbar-new-text { display: none !important; }
+        }
+      `}</style>
     </div>
   );
 }

@@ -36,7 +36,7 @@ export default class ErrorBoundary extends Component {
               Oops! Something went wrong
             </h1>
             <p style={{ fontSize: 14, color: '#6b7280', marginBottom: 20 }}>
-              The application encountered an error. Please refresh the page or contact support.
+              The application encountered an error. Please try to recover below or refresh the page.
             </p>
             {process.env.NODE_ENV === 'development' && this.state.error && (
               <details style={{
@@ -53,16 +53,28 @@ export default class ErrorBoundary extends Component {
                 </pre>
               </details>
             )}
-            <button
-              onClick={() => window.location.reload()}
-              style={{
-                padding: '12px 24px', background: '#4f46e5', color: '#fff',
-                border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600,
-                cursor: 'pointer', width: '100%'
-              }}
-            >
-              Refresh Page
-            </button>
+            <div style={{ display: 'flex', gap: 12, flexDirection: 'column' }}>
+              <button
+                onClick={() => this.setState({ hasError: false })}
+                style={{
+                  padding: '12px 24px', background: '#10b981', color: '#fff',
+                  border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600,
+                  cursor: 'pointer', width: '100%'
+                }}
+              >
+                Try to Recover
+              </button>
+              <button
+                onClick={() => window.location.reload()}
+                style={{
+                  padding: '12px 24px', background: '#4f46e5', color: '#fff',
+                  border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600,
+                  cursor: 'pointer', width: '100%'
+                }}
+              >
+                Refresh Page
+              </button>
+            </div>
           </div>
         </div>
       );

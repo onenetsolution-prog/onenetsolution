@@ -114,7 +114,7 @@ export default function Profile() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 20 }}>
+      <div className="profile-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 20 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
           {/* Personal Info */}
@@ -236,16 +236,16 @@ export default function Profile() {
                   </div>
                 </>
               ) : savedUpiId ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+                <div className="upi-info-row" style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
                   <div style={{ flex: 1 }}>
                     <InfoRow icon={Wallet} label="UPI ID"    value={savedUpiId} />
                     <InfoRow icon={User}   label="UPI Name"  value={savedUpiName} />
                     <InfoRow icon={Phone}  label="WhatsApp"  value={savedUpiMobile} />
                   </div>
                   {userQrPreview && (
-                    <div style={{ textAlign: 'center', flexShrink: 0 }}>
+                    <div className="upi-qr-container" style={{ textAlign: 'center', flexShrink: 0 }}>
                       <img src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(userUpiLink)}&bgcolor=ffffff&color=000000&margin=6`}
-                        alt="Your UPI QR" style={{ borderRadius: 8, border: '2px solid var(--ink-100)' }} />
+                        alt="Your UPI QR" className="upi-qr-image" style={{ borderRadius: 8, border: '2px solid var(--ink-100)' }} />
                       <div style={{ fontSize: 11, color: 'var(--ink-400)', marginTop: 4 }}>Your QR</div>
                     </div>
                   )}
@@ -262,7 +262,7 @@ export default function Profile() {
         </div>
 
         {/* Right column */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div className="profile-right-column" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div className="card">
             <div className="card-body">
               <div style={{ textAlign: 'center', padding: '8px 0' }}>
@@ -370,6 +370,13 @@ export default function Profile() {
         @keyframes slideUp {
           from { opacity:0; transform:translateY(30px); }
           to   { opacity:1; transform:translateY(0); }
+        }
+        @media (max-width: 768px) {
+          .profile-grid { grid-template-columns: 1fr !important; }
+          .profile-right-column { order: 2; }
+          .upi-info-row { flex-direction: column !important; gap: 16px !important; align-items: flex-start !important; }
+          .upi-qr-container { align-self: center; }
+          .upi-qr-image { width: 80px !important; height: 80px !important; }
         }
       `}</style>
     </div>

@@ -55,26 +55,25 @@ const handleWhatsApp = useCallback((entry) => {
   const bizName    = profile?.business_name || 'Our CSC Center';
   const entryDate  = entry.entry_date ? format(new Date(entry.entry_date), 'dd MMM yyyy') : '';
 
-  let msg = `Dear ${entry.customer_name},\n\n`;
-  msg += `This is a payment reminder from ${bizName}.\n\n`;
-  msg += `Service Details\n`;
-  msg += `---------------\n`;
-  msg += `Service  : ${entry.service_name}\n`;
-  msg += `Date     : ${entryDate}\n`;
-  msg += `Total    : Rs.${(entry.total_cost || 0).toLocaleString('en-IN')}\n`;
-  msg += `Paid     : Rs.${(entry.received_payment || 0).toLocaleString('en-IN')}\n`;
-  msg += `Due      : Rs.${pendingAmt.toLocaleString('en-IN')}\n\n`;
+  let msg = `*Payment Reminder*\n\n`;
+  msg += `Dear *${entry.customer_name}* \n\n`;
+  msg += `You have a pending payment at *${bizName}*.\n\n`;
+  msg += `*Service:* ${entry.service_name}\n`;
+  msg += `*Date:* ${entryDate}\n\n`;
+  msg += `*Payment Summary:*\n`;
+  msg += `- Total: ₹${(entry.total_cost || 0).toLocaleString('en-IN')}\n`;
+  msg += `- Paid: ₹${(entry.received_payment || 0).toLocaleString('en-IN')}\n`;
+  msg += `- Due: ₹${pendingAmt.toLocaleString('en-IN')}\n`;
 
   if (upiId) {
-    const payLink = `https://eloquent-narwhal-ac360a.netlify.app?pa=${upiId}&pn=${encodeURIComponent(upiName)}&am=${pendingAmt}&tn=${encodeURIComponent(entry.service_name)}&cn=${encodeURIComponent(entry.customer_name)}&biz=${encodeURIComponent(bizName)}`;
-
-    msg += `Click below to pay instantly:\n`;
-    msg += `${payLink}\n\n`;
+    const qrLink = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=upi://pay?pa=${upiId}%26pn=${encodeURIComponent(upiName)}%26am=${pendingAmt}%26tn=${encodeURIComponent(entry.service_name)}`;
+    msg += `\n *Pay Now via UPI:*\n`;
+    msg += `${qrLink}\n`;
   }
 
-  msg += `Please clear the due amount at your earliest convenience.\n`;
-  msg += `Thank you.\n\n`;
-  msg += `${bizName}`;
+  msg += `\nPlease clear the due amount at your earliest convenience.\n`;
+  msg += `_Thank you!_ \n`;
+  msg += `*${bizName}*`;
   if (profile?.mobile) msg += `\n${profile.mobile}`;
 
   window.open(`https://wa.me/91${mobile}?text=${encodeURIComponent(msg)}`, '_blank');

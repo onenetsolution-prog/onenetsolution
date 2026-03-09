@@ -12,7 +12,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { useLocation } from 'react-router-dom';
-import { getServerNow, getServerDateObject } from '../hooks/useServerTime';
+import { getServerNow, getServerDateObject, isServerTimeInitialized } from '../hooks/useServerTime';
 import { findAnswer } from '../utils/chatbotKnowledgeBase';
 import {
   MessageCircle, X, Send, Bot, User, Minimize2,
@@ -346,7 +346,7 @@ export default function AIChatbot() {
       const totalPending = (pending || []).reduce((s, e) => s + (e.pending_payment || 0), 0);
       return { totalEntries: totalEntries || 0, monthEntries: monthEntries || 0, totalPending };
     },
-    enabled: !!user?.id,
+    enabled: !!user?.id && isServerTimeInitialized(),
     staleTime: 2 * 60 * 1000,
   });
 
@@ -410,7 +410,7 @@ export default function AIChatbot() {
       ];
     }
 
-    if (profile?.expiry_date) {
+    if (profile?.expiry_date && isServerTimeInitialized()) {
       const expiryDays = Math.ceil((new Date(profile.expiry_date) - getServerDateObject()) / (1000 * 60 * 60 * 24));
       if (expiryDays <= 7 && expiryDays > 0) {
         return [
@@ -640,6 +640,11 @@ export default function AIChatbot() {
   const chatWidth = isMobile ? 'calc(100vw - 16px)' : 370;
   const maxChatHeight = isMobile ? 'calc(100vh - 80px)' : 560;
 
+  // Guard: Wait for server time to be initialized (all hooks already called)
+  if (!isServerTimeInitialized()) {
+    return null;
+  }
+
   return (
     <>
       <style>{`
@@ -674,7 +679,7 @@ export default function AIChatbot() {
           title={t.contactUs}
           aria-label="Open chat"
           style={{
-            position: 'fixed', bottom: isMobile ? 20 : 24, right: isMobile ? 20 : 24, zIndex: 9999,
+            position: 'fixed', bottom: isMobile ? 40 : 44, right: isMobile ? 25 : 29, zIndex: 9999,
             width: 56, height: 56, borderRadius: '50%',
             background: 'var(--brand)', color: '#fff',
             border: 'none', cursor: 'pointer',

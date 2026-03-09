@@ -351,7 +351,7 @@ export default function Invoice() {
         ))}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(280px, 380px)', gap: 20, gridAutoFlow: 'dense' }} className="invoice-grid">
+      <div className="invoice-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(280px, 380px)', gap: 20, gridAutoFlow: 'dense' }}>
         <div style={{ gridColumn: 'auto' }}>
 
           {/* Date Filter */}
@@ -362,7 +362,7 @@ export default function Invoice() {
               </div>
             </div>
             <div className="card-body">
-              <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+              <div className="date-mode-buttons" style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
                 {[['today','Today'],['custom','Specific Date'],['range','Date Range']].map(([mode, label]) => (
                   <button key={mode} onClick={() => { setDateMode(mode); setSelectedIds([]); }}
                     style={{
@@ -381,11 +381,12 @@ export default function Invoice() {
                 <DateInput
                   value={customDate}
                   onChange={(val) => { setCustomDate(val); setSelectedIds([]); }}
+                  className="date-input-custom"
                   style={{ width: 200 }}
                 />
               )}
               {dateMode === 'range' && (
-                <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                <div className="date-input-range" style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                   <DateInput
                     value={rangeFrom}
                     onChange={(val) => { setRangeFrom(val); setSelectedIds([]); }}
@@ -436,8 +437,8 @@ export default function Invoice() {
                       <th style={{ width: 40 }}></th>
                       <th>Customer</th>
                       <th>Service</th>
-                      <th>Work</th>
-                      <th>Payment</th>
+                      <th className="table-col-work" style={{ display: 'none' }}>Work</th>
+                      <th className="table-col-payment" style={{ display: 'none' }}>Payment</th>
                       <th style={{ textAlign: 'right' }}>Total</th>
                       <th style={{ textAlign: 'right' }}>Received</th>
                       <th style={{ textAlign: 'right' }}>Pending</th>
@@ -458,8 +459,8 @@ export default function Invoice() {
                             <div style={{ fontSize: 13 }}>{entry.service_name}</div>
                             {entry.remark && <div style={{ fontSize: 11, color: 'var(--ink-400)', fontStyle: 'italic' }}>{entry.remark}</div>}
                           </td>
-                          <td><span className={`badge ${entry.work_status === 'completed' ? 'badge-success' : entry.work_status === 'cancelled' ? 'badge-danger' : 'badge-warning'}`}>{entry.work_status}</span></td>
-                          <td><span className={`badge ${entry.payment_status === 'paid' ? 'badge-success' : entry.payment_status === 'partially paid' ? 'badge-warning' : 'badge-danger'}`}>{entry.payment_status}</span></td>
+                          <td className="table-col-work"><span className={`badge ${entry.work_status === 'completed' ? 'badge-success' : entry.work_status === 'cancelled' ? 'badge-danger' : 'badge-warning'}`}>{entry.work_status}</span></td>
+                          <td className="table-col-payment"><span className={`badge ${entry.payment_status === 'paid' ? 'badge-success' : entry.payment_status === 'partially paid' ? 'badge-warning' : 'badge-danger'}`}>{entry.payment_status}</span></td>
                           <td style={{ textAlign: 'right', fontWeight: 600 }}>Rs.{(entry.total_cost||0).toLocaleString('en-IN')}</td>
                           <td style={{ textAlign: 'right', color: 'var(--success)', fontWeight: 600 }}>Rs.{(entry.received_payment||0).toLocaleString('en-IN')}</td>
                           <td style={{ textAlign: 'right', color: (entry.pending_payment||0) > 0 ? 'var(--danger)' : 'var(--success)', fontWeight: 600 }}>Rs.{(entry.pending_payment||0).toLocaleString('en-IN')}</td>
@@ -473,7 +474,7 @@ export default function Invoice() {
           </div>
 
           {/* Payment Mode + Bill Note */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <div className="invoice-payment-bill-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <div className="card">
               <div className="card-header"><div className="card-title">Payment Mode</div></div>
               <div className="card-body">
@@ -505,13 +506,13 @@ export default function Invoice() {
         </div>
 
         {/* Preview Panel */}
-        <div style={{ position: 'relative' }}>
-          <div className="card invoice-preview-card" style={{ position: 'sticky', top: 72 }}>
+        <div style={{ position: 'sticky', top: 72, height: 'calc(100vh - 100px)', display: 'flex', flexDirection: 'column', zIndex: 10 }}>
+          <div className="card invoice-preview-card" style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
             <div className="card-header">
               <div className="card-title">Invoice Preview</div>
               <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--brand)', background: 'var(--brand-light)', padding: '3px 10px', borderRadius: 6 }}>{billNo}</div>
             </div>
-            <div style={{ padding: '20px' }}>
+            <div style={{ padding: '20px', overflowY: 'auto', flex: 1 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, borderBottom: '2px solid var(--brand)', paddingBottom: 12, marginBottom: 14 }}>
                 <div style={{ width: 38, height: 38, borderRadius: 10, background: 'linear-gradient(135deg,#6366f1,#4f46e5)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 900, fontSize: 16, flexShrink: 0 }}>
                   {(profile?.business_name || profile?.full_name || 'C')[0]}
@@ -592,7 +593,7 @@ export default function Invoice() {
                 </>
               )}
             </div>
-            <div style={{ padding: '0 20px 20px' }}>
+            <div style={{ padding: '0 20px 20px', flexShrink: 0 }}>
               <button className="btn btn-primary" style={{ width: '100%' }}
                 onClick={handlePrint} disabled={selectedEntries.length === 0 || printing}>
                 <Printer size={15} />
@@ -602,6 +603,21 @@ export default function Invoice() {
           </div>
         </div>
       </div>
+      <style>{`
+        @media (max-width: 768px) {
+          .invoice-grid { grid-template-columns: 1fr !important; }
+          .invoice-preview-card { max-height: 500px !important; }
+          .date-mode-buttons { flex-wrap: wrap !important; }
+          .date-input-custom { width: 100% !important; }
+          .date-input-range { flex-wrap: wrap !important; gap: 8px !important; align-items: center !important; }
+          .date-input-range input { width: 100% !important; flex-basis: 100%; }
+          .date-input-range span { flex-basis: 100%; text-align: center; }
+          .invoice-payment-bill-grid { grid-template-columns: 1fr !important; }
+          .table-col-work { display: none !important; }
+          .table-col-payment { display: none !important; }
+          th.table-col-work, th.table-col-payment, td.table-col-work, td.table-col-payment { display: none !important; }
+        }
+      `}</style>
     </div>
   );
 }

@@ -208,7 +208,7 @@ export default function AdminReports() {
       {/* Filters */}
       <div className="card" style={{ marginBottom: 20 }}>
         <div className="card-body">
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+          <div className="admin-reports-filter-row" style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <label className="form-label" style={{ marginBottom: 0 }}>From</label>
               <input type="date" className="form-input" style={{ width: 160 }} value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
@@ -229,7 +229,7 @@ export default function AdminReports() {
       </div>
 
       {/* Tab switcher */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+      <div className="admin-reports-tabs" style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
         {tabs.map(tab => (
           <button
             key={tab.id}
@@ -258,7 +258,7 @@ export default function AdminReports() {
                 <StatBox label="Total Entries"     value={filtered.length}                              color="var(--ink-600)" />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
+              <div className="admin-charts-row1" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
                 <div className="card">
                   <div className="card-header"><div className="card-title">Revenue by Operator</div></div>
                   <div className="card-body">
@@ -279,15 +279,17 @@ export default function AdminReports() {
                   <div className="card-header"><div className="card-title">Service Distribution</div></div>
                   <div className="card-body">
                     {pieData.length === 0 ? <div className="empty-state"><p>No data</p></div> : (
-                      <ResponsiveContainer width="100%" height={260}>
-                        <PieChart>
-                          <Pie data={pieData} cx="50%" cy="50%" outerRadius={90} dataKey="value"
-                            label={({ name, percent }) => `${name} ${(percent*100).toFixed(0)}%`} labelLine={false}>
-                            {pieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                          </Pie>
-                          <Tooltip formatter={(v) => [v, 'Entries']} />
-                        </PieChart>
-                      </ResponsiveContainer>
+                      <div className="pie-chart-admin" style={{ height: 260 }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie data={pieData} cx="50%" cy="50%" outerRadius={90} dataKey="value"
+                              label={({ name, percent }) => `${name} ${(percent*100).toFixed(0)}%`} labelLine={false}>
+                              {pieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                            </Pie>
+                            <Tooltip formatter={(v) => [v, 'Entries']} />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -324,7 +326,7 @@ export default function AdminReports() {
               {operatorStats.length === 0 ? (
                 <div className="empty-state"><Trophy size={36} /><p>No data in selected range</p></div>
               ) : (
-                <div className="table-scroll">
+                <div className="admin-operators-table table-scroll">
                   <table>
                     <thead>
                       <tr>
@@ -380,7 +382,7 @@ export default function AdminReports() {
               {inactiveUsers.length === 0 ? (
                 <div className="empty-state"><UserX size={36} /><p>All users are active</p></div>
               ) : (
-                <div className="table-scroll">
+                <div className="admin-inactive-table table-scroll">
                   <table>
                     <thead>
                       <tr>
@@ -411,6 +413,19 @@ export default function AdminReports() {
           )}
         </>
       )}
+      <style>{`
+        @media (max-width: 768px) {
+          .admin-reports-filter-row { gap: 10px !important; }
+          .admin-reports-tabs { flex-wrap: wrap !important; }
+          .admin-charts-row1 { grid-template-columns: 1fr !important; }
+          .pie-chart-admin { height: 280px !important; }
+          .pie-chart-admin svg { max-height: 280px !important; }
+          .admin-operators-table { overflow-x: auto !important; }
+          .admin-inactive-table { overflow-x: auto !important; }
+          .stats-grid { flex-wrap: wrap !important; }
+          .stats-grid > .card { min-width: 140px !important; }
+        }
+      `}</style>
     </div>
   );
 }

@@ -121,7 +121,7 @@ export default function AdminNotifications() {
   // ── UI ─────────────────────────────────────────────────────────────────────
   return (
     <div className="page-container">
-      <div className="page-header">
+      <div className="page-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
         <div>
           <h1 className="page-title">Notifications</h1>
           <p className="page-subtitle">Send targeted or broadcast notifications to users</p>
@@ -138,8 +138,8 @@ export default function AdminNotifications() {
         </button>
       </div>
 
-      {/* ── Tab switcher ──────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+      {/* – Tab switcher ──────────────────────────────────────────────────── */}
+      <div className="admin-notif-tabs" style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
         {['compose', 'templates'].map(tab => (
           <button
             key={tab}
@@ -153,9 +153,9 @@ export default function AdminNotifications() {
         ))}
       </div>
 
-      {/* ── COMPOSE TAB ───────────────────────────────────────────────────── */}
+      {/* – COMPOSE TAB ───────────────────────────────────────────────────── */}
       {activeTab === 'compose' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 24 }}>
+        <div className="admin-notif-compose-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 24 }}>
 
           {/* Compose card */}
           <div className="card">
@@ -266,9 +266,9 @@ export default function AdminNotifications() {
         </div>
       )}
 
-      {/* ── TEMPLATES TAB ─────────────────────────────────────────────────── */}
+      {/* – TEMPLATES TAB ─────────────────────────────────────────────────── */}
       {activeTab === 'templates' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 24 }}>
+        <div className="admin-notif-templates-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 24 }}>
 
           {/* Create new template */}
           <div className="card">
@@ -389,12 +389,12 @@ export default function AdminNotifications() {
                       {n.profiles?.full_name || n.profiles?.business_name || '—'}
                     </td>
                     <td style={{ fontWeight: 600 }}>{n.title}</td>
-                    <td style={{ fontSize: 13, color: 'var(--ink-600)', maxWidth: 200 }}>
+                    <td className="table-col-message" style={{ fontSize: 13, color: 'var(--ink-600)', maxWidth: 200 }}>
                       <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {n.message}
                       </div>
                     </td>
-                    <td style={{ fontSize: 12, color: 'var(--ink-500)' }}>
+                    <td className="table-col-sent-at" style={{ fontSize: 12, color: 'var(--ink-500)' }}>
                       {n.created_at ? format(new Date(n.created_at), 'dd/MM/yyyy HH:mm') : '—'}
                     </td>
                     <td>
@@ -418,6 +418,17 @@ export default function AdminNotifications() {
           </div>
         )}
       </div>
+      <style>{`
+        @media (max-width: 768px) {
+          .admin-notif-tabs { flex-wrap: wrap !important; }
+          .admin-notif-compose-grid { grid-template-columns: 1fr !important; }
+          .admin-notif-templates-grid { grid-template-columns: 1fr !important; }
+          .table-col-message { display: none !important; }
+          .table-col-sent-at { display: none !important; }
+          th.table-col-message, td.table-col-message { display: none !important; }
+          th.table-col-sent-at, td.table-col-sent-at { display: none !important; }
+        }
+      `}</style>
     </div>
   );
 }

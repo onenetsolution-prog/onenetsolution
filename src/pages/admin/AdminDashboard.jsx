@@ -241,8 +241,14 @@ export default function AdminDashboard() {
   const { data: allProfiles = [], isLoading: loadingProfiles, refetch: refetchProfiles } = useQuery({
     queryKey: ['admin-all-profiles'],
     queryFn: async () => {
-      const { data } = await supabase.from('profiles').select('*').neq('id', user.id).order('created_at', { ascending: false });
-      return data || [];
+      try {
+        const { data, error } = await supabase.from('profiles').select('id, full_name, business_name, plan, account_status, expiry_date, created_at').order('created_at', { ascending: false });
+        if (error) throw error;
+        return data || [];
+      } catch (err) {
+        console.error('Failed to fetch profiles:', err);
+        return [];
+      }
     }
   });
 

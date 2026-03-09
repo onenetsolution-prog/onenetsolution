@@ -167,7 +167,7 @@ export default function Reports() {
       </div>
 
       {/* Date Filter */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20, flexWrap: 'wrap' }}>
+      <div className="reports-date-filter" style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-600)' }}>From</span>
           <input type="date" className="form-input" style={{ width: 160 }}
@@ -195,7 +195,7 @@ export default function Reports() {
       ) : (
         <>
           {/* 5 Stat Cards */}
-          <div style={{ display: 'flex', gap: 14, marginBottom: 20 }}>
+          <div className="reports-stats" style={{ display: 'flex', gap: 14, marginBottom: 20, flexWrap: 'wrap' }}>
             <StatBox label="Total Entries"  value={totalEntries} />
             <StatBox label="Total Revenue"  value={`Rs.${totalRevenue.toLocaleString('en-IN')}`} />
             <StatBox label="Total Received" value={`Rs.${totalReceived.toLocaleString('en-IN')}`} />
@@ -204,20 +204,22 @@ export default function Reports() {
           </div>
 
           {/* Row 1: Service Distribution + Daily Revenue */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+          <div className="reports-charts-row1" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
 
             <ChartCard title="Service Distribution">
               {pieData.length === 0 ? empty : (
-                <ResponsiveContainer width="100%" height={260}>
-                  <PieChart>
-                    <Pie data={pieData} cx="50%" cy="50%" outerRadius={100} dataKey="value"
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                      labelLine={false}>
-                      {pieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                    </Pie>
-                    <Tooltip formatter={(v) => [v, 'Entries']} />
-                  </PieChart>
-                </ResponsiveContainer>
+                <div className="pie-chart-container" style={{ height: 260 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={pieData} cx="50%" cy="50%" outerRadius={100} dataKey="value"
+                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        labelLine={false}>
+                        {pieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                      </Pie>
+                      <Tooltip formatter={(v) => [v, 'Entries']} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
               )}
             </ChartCard>
 
@@ -238,7 +240,7 @@ export default function Reports() {
           </div>
 
           {/* Row 2: Work Status + Payment Status */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <div className="reports-charts-row2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
 
             <ChartCard title="Work Status">
               <ResponsiveContainer width="100%" height={240}>
@@ -273,6 +275,16 @@ export default function Reports() {
           </div>
         </>
       )}
+      <style>{`
+        @media (max-width: 768px) {
+          .reports-date-filter { flex-wrap: wrap !important; gap: 10px !important; }
+          .reports-stats { flex-wrap: wrap !important; }
+          .reports-stats > div { min-width: 140px !important; }
+          .reports-charts-row1 { grid-template-columns: 1fr !important; }
+          .reports-charts-row2 { grid-template-columns: 1fr !important; }
+          .pie-chart-container { height: 300px !important; }
+        }
+      `}</style>
     </div>
   );
 }

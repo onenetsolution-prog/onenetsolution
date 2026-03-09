@@ -365,10 +365,18 @@ export default function Dashboard() {
   const { data: impersonatedProfile } = useQuery({
     queryKey: ['impersonated-profile', effectiveUserId],
     queryFn: async () => {
-      const { data } = await supabase.from('profiles').select('*').eq('id', effectiveUserId).single();
-      return data;
+      try {
+        const { data, error } = await supabase.from('profiles').select('id, full_name, business_name, mobile, plan, expiry_date, account_status, trial_start_date, address, gst_number, pan_number, gst_enabled, upi_id, upi_name, upi_mobile, created_at').eq('id', effectiveUserId).maybeSingle();
+        if (error) throw error;
+        return data;
+      } catch (err) {
+        console.error('Failed to fetch impersonated profile:', err);
+        return null;
+      }
     },
     enabled: !!effectiveUserId,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false
   });
 
   const profile = effectiveUserId ? impersonatedProfile : authProfile;
@@ -382,6 +390,8 @@ export default function Dashboard() {
       return data || [];
     },
     enabled: !!queryUserId,
+    staleTime: 0,
+    refetchOnWindowFocus: true
   });
 
   const { data: recentEntries = [], isLoading: loadingRecent, refetch: refetchRecent } = useQuery({
@@ -392,6 +402,8 @@ export default function Dashboard() {
       return data || [];
     },
     enabled: !!queryUserId,
+    staleTime: 0,
+    refetchOnWindowFocus: true
   });
 
   const { data: todayEntries = [], isLoading: loadingToday, refetch: refetchToday } = useQuery({
@@ -402,6 +414,8 @@ export default function Dashboard() {
       return data || [];
     },
     enabled: !!queryUserId,
+    staleTime: 0,
+    refetchOnWindowFocus: true
   });
 
   const { data: notifications = [] } = useQuery({
@@ -412,6 +426,8 @@ export default function Dashboard() {
       return data || [];
     },
     enabled: !!queryUserId,
+    staleTime: 30000,
+    refetchOnWindowFocus: true
   });
 
   const todayCount      = todayEntries.length;

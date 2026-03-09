@@ -4,9 +4,11 @@ import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'sonner';
 import { getServerDate, useServerTime } from '../../hooks/useServerTime';
+import { format } from 'date-fns';
 import { PlusCircle, Send, SkipForward, User, Briefcase, CreditCard, FileText } from 'lucide-react';
 
-function WhatsAppModal({ entry, businessName, onSend, onSkip }) {
+function WhatsAppModal({ entry, businessName, onSend, onSkip, includeUpiLink, onIncludeUpiLinkChange }) {
+  const showUpiCheckbox = entry.payment_status === 'pending' || entry.payment_status === 'partially paid';
   return (
     <div className="modal-overlay">
       <div className="modal-card" style={{ maxWidth: 420 }}>
@@ -18,6 +20,12 @@ function WhatsAppModal({ entry, businessName, onSend, onSkip }) {
           <div style={{ background: 'var(--ink-50)', borderRadius: 10, padding: '12px 14px', fontSize: 13, color: 'var(--ink-700)', lineHeight: 1.6, border: '1px solid var(--ink-200)' }}>
             Hello {entry.customer_name}, your {entry.service_name} request has been received at {businessName}. We will update you once completed. Thank you!
           </div>
+          {showUpiCheckbox && (
+            <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <input type="checkbox" id="include-upi" checked={includeUpiLink} onChange={e => onIncludeUpiLinkChange(e.target.checked)} style={{ cursor: 'pointer', width: 16, height: 16 }} />
+              <label htmlFor="include-upi" style={{ fontSize: 13, color: 'var(--ink-700)', cursor: 'pointer', margin: 0 }}>Include UPI payment QR link in message</label>
+            </div>
+          )}
         </div>
         <div className="modal-footer">
           <button className="btn btn-secondary" onClick={onSkip}><SkipForward size={15} />Skip</button>
@@ -61,6 +69,7 @@ export default function NewEntry() {
   const [selectedService, setSelectedService] = useState(null);
   const [showWhatsApp, setShowWhatsApp] = useState(false);
   const [savedEntry, setSavedEntry] = useState(null);
+  const [includeUpiLink, setIncludeUpiLink] = useState(true);
 
   const { data: services = [], isLoading: loadingServices } = useQuery({
     queryKey: ['user-services', user?.id],
@@ -140,13 +149,43 @@ export default function NewEntry() {
 
   const handleWhatsAppSend = () => {
     const mobile = (savedEntry.mobile || '').replace(/\D/g, '').slice(-10);
-    const msg = `Hello ${savedEntry.customer_name}, your ${savedEntry.service_name} request has been received at ${profile?.business_name || 'our center'}. We will update you once completed. Thank you!`;
+    if (!mobile) { toast.error('No mobile number'); return; }
+    
+    const bizName = profile?.business_name || 'our center';
+    const entryDate = savedEntry.entry_date ? format(new Date(savedEntry.entry_date), 'dd MMM yyyy') : '';
+    const totalCost = savedEntry.total_cost || 0;
+    const receivedPayment = savedEntry.received_payment || 0;
+    const pendingPayment = savedEntry.pending_payment || 0;
+    const isPaymentPending = savedEntry.payment_status === 'pending' || savedEntry.payment_status === 'partially paid';
+    const upiId = profile?.upi_id;
+    const upiName = profile?.upi_name || profile?.full_name || '';
+    
+    let msg = `*Service Request Confirmed!*\n\n`;
+    msg += `Hello *${savedEntry.customer_name}* \n\n`;
+    msg += `Your request has been registered at *${bizName}*.\n\n`;
+    msg += `*Service:* ${savedEntry.service_name}\n`;
+    msg += `*Date:* ${entryDate}\n`;
+    msg += `*Work Status:* ${savedEntry.work_status}\n\n`;
+    msg += `*Payment Summary:*\n`;
+    msg += `- Total: ₹${totalCost.toLocaleString('en-IN')}\n`;
+    msg += `- Received: ₹${receivedPayment.toLocaleString('en-IN')}\n`;
+    msg += `- Pending: ₹${pendingPayment.toLocaleString('en-IN')}\n`;
+    
+    if (includeUpiLink && isPaymentPending && upiId) {
+      msg += `\n *Pay Now via UPI:*\n`;
+      msg += `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=upi://pay?pa=${upiId}%26pn=${encodeURIComponent(upiName)}%26am=${pendingPayment}%26tn=${encodeURIComponent(savedEntry.service_name)}\n`;
+    }
+    
+    msg += `\n For queries contact us anytime.\n`;
+    msg += `_Thank you for choosing us!_ \n`;
+    msg += `*${bizName}*`;
+    
     window.open(`https://wa.me/91${mobile}?text=${encodeURIComponent(msg)}`, '_blank');
-    setShowWhatsApp(false); setForm(emptyForm); setSelectedService(null); setSavedEntry(null);
+    setShowWhatsApp(false); setForm(emptyForm); setForm(prev => ({ ...prev, entry_date: getServerDate() })); setSelectedService(null); setSavedEntry(null); setIncludeUpiLink(true);
   };
 
   const handleWhatsAppSkip = () => {
-    setShowWhatsApp(false); setForm(emptyForm); setSelectedService(null); setSavedEntry(null);
+    setShowWhatsApp(false); setForm(emptyForm); setForm(prev => ({ ...prev, entry_date: getServerDate() })); setSelectedService(null); setSavedEntry(null); setIncludeUpiLink(true);
   };
 
   const totalCost = parseFloat(form.total_cost) || 0;
@@ -156,7 +195,7 @@ export default function NewEntry() {
   return (
     <div className="page-container">
       {showWhatsApp && savedEntry && (
-        <WhatsAppModal entry={savedEntry} businessName={profile?.business_name || 'our center'} onSend={handleWhatsAppSend} onSkip={handleWhatsAppSkip} />
+        <WhatsAppModal entry={savedEntry} businessName={profile?.business_name || 'our center'} onSend={handleWhatsAppSend} onSkip={handleWhatsAppSkip} includeUpiLink={includeUpiLink} onIncludeUpiLinkChange={setIncludeUpiLink} />
       )}
 
       <div className="page-header">
