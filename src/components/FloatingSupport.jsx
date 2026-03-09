@@ -30,7 +30,7 @@ export default function FloatingSupport() {
   if (!waNumber && !callNumber) return null;
 
   return (
-    <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 90, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10 }}>
+    <div style={{ position: 'fixed', bottom: 24, right: 34, zIndex: 90, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10 }}>
       {open && (
         <>
           {waNumber && (
