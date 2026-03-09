@@ -10,7 +10,6 @@ import {
   Bell, TrendingUp, Calendar, Zap
 } from 'lucide-react';
 import { format } from 'date-fns';
-import FloatingSupport from '../components/FloatingSupport';
 import ImpersonationBanner from '../components/ImpersonationBanner';
 
 const navItems = [
@@ -523,7 +522,6 @@ export default function UserLayout() {
       {isLimitBlocked && (
         <SubscriptionLimitBlock profile={profile} settings={settings} onSignOut={handleSignOut} />
       )}
-      <FloatingSupport />
       <style>{`
         @media (max-width: 768px) {
           .user-time-section { display: none !important; }
