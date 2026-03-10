@@ -120,14 +120,16 @@ const CSS = `
     width: 8px; height: 8px; background: var(--indigo); border-radius: 50%;
     position: fixed; top: 0; left: 0; z-index: 9999; pointer-events: none;
     transform: translate(-50%, -50%) translate3d(0,0,0);
-    will-change: transform;
+    will-change: transform; contain: layout style paint;
+    filter: drop-shadow(0 0 4px rgba(91,95,207,0.3));
   }
   .cursor-ring {
-    width: 36px; height: 36px; border: 1.5px solid rgba(91,95,207,0.4);
+    width: 36px; height: 36px; border: 1.5px solid rgba(91,95,207,0.5);
     border-radius: 50%; position: fixed; top: 0; left: 0; z-index: 9998;
     pointer-events: none;
     transform: translate(-50%, -50%) translate3d(0,0,0);
-    will-change: transform;
+    will-change: transform; contain: layout style paint;
+    box-shadow: inset 0 0 8px rgba(91,95,207,0.2);
   }
   @media (max-width: 768px) {
     .cursor-dot, .cursor-ring { display: none; }
@@ -796,17 +798,18 @@ export default function LandingPage() {
   }, []);
 
   useEffect(() => {
-    let mx = -100, my = -100;
-    let rx = -100, ry = -100;
+    let mx = 0, my = 0;
+    let rx = 0, ry = 0;
     let animating = false;
     const dotEl = document.querySelector('.cursor-dot');
     const ringEl = document.querySelector('.cursor-ring');
 
     const animate = () => {
       if (animating) {
-        // Direct transform updates without state
-        rx += (mx - rx) * 0.22;
-        ry += (my - ry) * 0.22;
+        // Smooth easing with optimized dampening for snappy response
+        rx += (mx - rx) * 0.32;
+        ry += (my - ry) * 0.32;
+        // Direct transform updates without state for maximum performance
         if (dotEl) dotEl.style.transform = `translate(calc(-50% + ${mx}px), calc(-50% + ${my}px)) translate3d(0,0,0)`;
         if (ringEl) ringEl.style.transform = `translate(calc(-50% + ${rx}px), calc(-50% + ${ry}px)) translate3d(0,0,0)`;
         rafRef.current = requestAnimationFrame(animate);
@@ -822,7 +825,7 @@ export default function LandingPage() {
       }
     };
 
-    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mousemove', onMove, { passive: true });
     return () => {
       window.removeEventListener('mousemove', onMove);
       animating = false;
