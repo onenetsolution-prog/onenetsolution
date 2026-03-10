@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { getServerTimestamp } from '../../hooks/useServerTime';
 import { toast } from 'sonner';
-import { CreditCard, MessageCircle, AlertCircle, RefreshCw } from 'lucide-react';
+import { CreditCard, MessageCircle, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function PendingPayments() {
@@ -23,7 +23,10 @@ export default function PendingPayments() {
         .order('entry_date', { ascending: true });
       return data || [];
     },
-    enabled: !!user?.id
+    enabled: !!user?.id,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: false
   });
 
   const updateMutation = useMutation({
@@ -90,9 +93,6 @@ const hasUpi = !!(profile?.upi_id);
           <p className="page-subtitle">{entries.length} entries with outstanding payments</p>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          <button onClick={refetch} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, padding: '8px 16px', borderRadius: 10, cursor: 'pointer', background: 'var(--ink-100)', color: 'var(--ink-600)', border: '1px solid var(--ink-200)' }} title="Refresh pending payments">
-            <RefreshCw size={15} /> Refresh
-          </button>
           <div style={{ background: '#fee2e2', border: '1.5px solid #fca5a5', borderRadius: 12, padding: '10px 18px', textAlign: 'center' }}>
             <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--danger)', letterSpacing: 0.5 }}>Total Pending</div>
             <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--danger)' }}>Rs.{totalPending.toLocaleString('en-IN')}</div>

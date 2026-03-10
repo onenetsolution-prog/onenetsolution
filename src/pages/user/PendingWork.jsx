@@ -3,7 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { getServerTimestamp } from '../../hooks/useServerTime';
 import { toast } from 'sonner';
-import { Clock, RefreshCw } from 'lucide-react';
+import { Clock } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function PendingWork() {
@@ -21,7 +21,10 @@ export default function PendingWork() {
         .order('entry_date', { ascending: true });
       return data || [];
     },
-    enabled: !!user?.id
+    enabled: !!user?.id,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: false
   });
 
   const updateMutation = useMutation({
@@ -47,9 +50,6 @@ export default function PendingWork() {
           <h1 className="page-title">Pending Work</h1>
           <p className="page-subtitle">{entries.length} entries pending completion</p>
         </div>
-        <button onClick={refetch} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, padding: '8px 16px', borderRadius: 10, cursor: 'pointer', background: 'var(--ink-100)', color: 'var(--ink-600)', border: '1px solid var(--ink-200)' }} title="Refresh pending work">
-          <RefreshCw size={15} /> Refresh
-        </button>
       </div>
 
       <div className="table-wrap">

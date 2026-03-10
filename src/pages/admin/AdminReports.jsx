@@ -6,7 +6,8 @@ import { Navigate } from 'react-router-dom';
 import { format, startOfMonth, endOfMonth, parseISO, subDays } from 'date-fns';
 import { getServerDateObject } from '../../hooks/useServerTime';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { Download, Trophy, UserX, TrendingUp } from 'lucide-react';
+import { Download, Trophy, UserX, TrendingUp, FileText } from 'lucide-react';
+import jsPDF from 'jspdf';
 
 const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL || '9178chandannayak@gmail.com';
 const COLORS = ['#4f46e5','#10b981','#f59e0b','#ef4444','#3b82f6','#8b5cf6','#ec4899'];
@@ -33,6 +34,154 @@ function exportToCSV(rows, filename) {
   URL.revokeObjectURL(url);
 }
 
+// ── PDF export helper ──────────────────────────────────────────────────────────
+function exportAdminPDF({ filtered, operatorStats, pieData, dailyData, inactiveUsers, dateFrom, dateTo, totalRevenue, totalProfit, totalPending, totalAmount, collectionRate }) {
+  const pdf     = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const pageW   = 210;
+  const pageH   = 297;
+  const margin  = 14;
+  const cW      = pageW - margin * 2;
+  let y         = 0;
+
+  const fmt    = (n) => `Rs.${Number(n).toLocaleString('en-IN')}`;
+  const clamp  = (needed) => { if (y + needed > pageH - 14) { pdf.addPage(); y = 14; } };
+  const rowH   = 7;
+
+  // ── Header band ─────────────────────────────────────────────────────────────
+  pdf.setFillColor(79, 70, 229);
+  pdf.rect(0, 0, pageW, 30, 'F');
+  pdf.setTextColor(255, 255, 255);
+  pdf.setFontSize(17); pdf.setFont('helvetica', 'bold');
+  pdf.text('Platform Report', margin, 13);
+  pdf.setFontSize(9); pdf.setFont('helvetica', 'normal');
+  pdf.text(`Period: ${dateFrom}  →  ${dateTo}`, margin, 21);
+  pdf.text(`Generated: ${format(new Date(), 'dd MMM yyyy, hh:mm a')}`, pageW - margin, 21, { align: 'right' });
+  y = 38;
+
+  // ── KPI cards ───────────────────────────────────────────────────────────────
+  const kpis = [
+    { label: 'Total Revenue',    value: fmt(totalRevenue)  },
+    { label: 'Total Profit',     value: fmt(totalProfit)   },
+    { label: 'Total Pending',    value: fmt(totalPending)  },
+    { label: 'Collection Rate',  value: `${collectionRate}%` },
+    { label: 'Total Entries',    value: String(filtered.length) },
+  ];
+  const boxW = (cW - 8) / 5;
+  kpis.forEach((k, i) => {
+    const x = margin + i * (boxW + 2);
+    pdf.setFillColor(245, 247, 255);
+    pdf.roundedRect(x, y, boxW, 22, 3, 3, 'F');
+    pdf.setDrawColor(210, 210, 235);
+    pdf.roundedRect(x, y, boxW, 22, 3, 3, 'S');
+    pdf.setTextColor(100, 100, 140);
+    pdf.setFontSize(6.5); pdf.setFont('helvetica', 'bold');
+    pdf.text(k.label.toUpperCase(), x + boxW / 2, y + 7, { align: 'center' });
+    pdf.setTextColor(30, 30, 60);
+    pdf.setFontSize(k.value.length > 10 ? 7 : 9); pdf.setFont('helvetica', 'bold');
+    pdf.text(k.value, x + boxW / 2, y + 16, { align: 'center' });
+  });
+  y += 30;
+
+  // ── Section title ────────────────────────────────────────────────────────────
+  const sectionTitle = (title) => {
+    clamp(14);
+    pdf.setFillColor(237, 238, 255);
+    pdf.rect(margin, y, cW, 8, 'F');
+    pdf.setTextColor(79, 70, 229);
+    pdf.setFontSize(9); pdf.setFont('helvetica', 'bold');
+    pdf.text(title, margin + 3, y + 5.5);
+    y += 12;
+  };
+
+  // ── Table renderer ───────────────────────────────────────────────────────────
+  const drawTable = (headers, colWidths, rows) => {
+    clamp(rowH + 4);
+    // Header row
+    let cx = margin;
+    headers.forEach((h, i) => {
+      pdf.setFillColor(79, 70, 229);
+      pdf.rect(cx, y, colWidths[i], rowH, 'F');
+      pdf.setTextColor(255, 255, 255);
+      pdf.setFontSize(7.5); pdf.setFont('helvetica', 'bold');
+      pdf.text(h, cx + 3, y + 5);
+      cx += colWidths[i];
+    });
+    y += rowH;
+    // Data rows
+    rows.forEach((row, ri) => {
+      clamp(rowH + 2);
+      cx = margin;
+      pdf.setFillColor(ri % 2 === 0 ? 250 : 244, ri % 2 === 0 ? 250 : 246, 255);
+      pdf.rect(margin, y, cW, rowH, 'F');
+      row.forEach((cell, ci) => {
+        pdf.setTextColor(40, 40, 70);
+        pdf.setFontSize(7.5); pdf.setFont('helvetica', ci === 0 ? 'bold' : 'normal');
+        pdf.text(String(cell ?? '—'), cx + 3, y + 5);
+        cx += colWidths[ci];
+      });
+      y += rowH;
+    });
+    y += 8;
+  };
+
+  // ── 1. Operator Performance ──────────────────────────────────────────────────
+  sectionTitle('Operator Performance');
+  drawTable(
+    ['Rank', 'Operator', 'Entries', 'Revenue', 'Pending', 'Collection%'],
+    [14, 58, 20, 38, 32, 20],
+    operatorStats.map((o, i) => [
+      `#${i + 1}`, o.name, o.entries, fmt(o.revenue), fmt(o.pending), `${o.collectionRate}%`
+    ])
+  );
+
+  // ── 2. Service Distribution ──────────────────────────────────────────────────
+  sectionTitle('Service Distribution');
+  const svcRows = pieData.map(({ name, value }) => {
+    const rev = filtered.filter(e => e.service_name === name).reduce((s, e) => s + (e.received_payment || 0), 0);
+    const pct = filtered.length ? ((value / filtered.length) * 100).toFixed(1) : '0';
+    return [name, value, `${pct}%`, fmt(rev)];
+  });
+  drawTable(
+    ['Service', 'Count', 'Share', 'Revenue'],
+    [72, 22, 22, 66],
+    svcRows
+  );
+
+  // ── 3. Daily Revenue Breakdown ───────────────────────────────────────────────
+  if (dailyData.length > 0) {
+    sectionTitle('Daily Revenue Breakdown');
+    drawTable(
+      ['Date', 'Revenue', 'Entries'],
+      [50, 80, 52],
+      dailyData.map(d => [format(parseISO(d.date), 'dd MMM yyyy'), fmt(d.revenue), d.entries])
+    );
+  }
+
+  // ── 4. Inactive Users ────────────────────────────────────────────────────────
+  if (inactiveUsers.length > 0) {
+    sectionTitle(`Inactive Users (No entries in 30 days) — ${inactiveUsers.length} users`);
+    drawTable(
+      ['Name', 'Business', 'Mobile', 'Plan', 'Status', 'Last Entry'],
+      [34, 38, 26, 20, 18, 46],
+      inactiveUsers.map(u => [u.name, u.business, u.mobile, u.plan, u.status, u.lastEntry])
+    );
+  }
+
+  // ── Footer on every page ─────────────────────────────────────────────────────
+  const totalPages = pdf.internal.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    pdf.setPage(i);
+    pdf.setFillColor(245, 245, 250);
+    pdf.rect(0, pageH - 10, pageW, 10, 'F');
+    pdf.setTextColor(150, 150, 170);
+    pdf.setFontSize(7); pdf.setFont('helvetica', 'normal');
+    pdf.text('Confidential — Admin Platform Report', margin, pageH - 4);
+    pdf.text(`Page ${i} of ${totalPages}`, pageW - margin, pageH - 4, { align: 'right' });
+  }
+
+  pdf.save(`platform-report-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+}
+
 const StatBox = ({ label, value, color }) => (
   <div className="card" style={{ padding: '18px 20px' }}>
     <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6, color: 'var(--ink-400)', marginBottom: 6 }}>{label}</div>
@@ -47,9 +196,8 @@ export default function AdminReports() {
   const [dateFrom,       setDateFrom]       = useState(format(startOfMonth(getServerDateObject()), 'yyyy-MM-dd'));
   const [dateTo,         setDateTo]         = useState(format(endOfMonth(getServerDateObject()),   'yyyy-MM-dd'));
   const [filterOperator, setFilterOperator] = useState('');
-  const [activeTab,      setActiveTab]      = useState('overview'); // 'overview' | 'operators' | 'inactive'
+  const [activeTab,      setActiveTab]      = useState('overview');
 
-  // ── All entries in date range ──────────────────────────────────────────────
   const { data: entries = [], isLoading } = useQuery({
     queryKey: ['admin-reports', dateFrom, dateTo],
     queryFn: async () => {
@@ -64,7 +212,6 @@ export default function AdminReports() {
     enabled: !!isAdmin,
   });
 
-  // ── All profiles (for inactive report) ────────────────────────────────────
   const { data: allProfiles = [] } = useQuery({
     queryKey: ['admin-all-profiles'],
     queryFn: async () => {
@@ -77,7 +224,6 @@ export default function AdminReports() {
     enabled: !!isAdmin,
   });
 
-  // ── All entries ever (for inactive report) ─────────────────────────────────
   const { data: allEntries = [] } = useQuery({
     queryKey: ['admin-all-entries-ever'],
     queryFn: async () => {
@@ -92,7 +238,6 @@ export default function AdminReports() {
 
   if (!loading && !isAdmin) return <Navigate to="/dashboard" replace />;
 
-  // ── Derived data ───────────────────────────────────────────────────────────
   const operators = [...new Set(entries.map(e => e.profiles?.business_name || e.profiles?.full_name).filter(Boolean))];
   const filtered  = filterOperator
     ? entries.filter(e => (e.profiles?.business_name || e.profiles?.full_name) === filterOperator)
@@ -104,7 +249,6 @@ export default function AdminReports() {
   const totalAmount  = filtered.reduce((s, e) => s + (e.total_amount || 0), 0);
   const collectionRate = totalAmount > 0 ? Math.round((totalRevenue / totalAmount) * 100) : 0;
 
-  // Revenue by operator (all entries, not filtered by operator)
   const operatorStats = Object.values(
     entries.reduce((acc, e) => {
       const name = e.profiles?.business_name || e.profiles?.full_name || 'Unknown';
@@ -119,14 +263,10 @@ export default function AdminReports() {
   .map(o => ({ ...o, collectionRate: o.total > 0 ? Math.round((o.revenue / o.total) * 100) : 0 }))
   .sort((a, b) => b.revenue - a.revenue);
 
-  const top5 = operatorStats.slice(0, 5);
-
-  // Service distribution
   const pieData = Object.entries(
     filtered.reduce((acc, e) => { const n = e.service_name || 'Unknown'; acc[n] = (acc[n] || 0) + 1; return acc; }, {})
   ).map(([name, value]) => ({ name, value }));
 
-  // Daily revenue
   const dailyData = Object.values(
     filtered.reduce((acc, e) => {
       const day = e.entry_date;
@@ -137,7 +277,6 @@ export default function AdminReports() {
     }, {})
   ).map(d => ({ ...d, label: format(parseISO(d.date), 'dd/MM') }));
 
-  // Inactive users — no entries in last 30 days
   const thirtyDaysAgo = format(subDays(new Date(), 30), 'yyyy-MM-dd');
   const lastEntryByUser = allEntries.reduce((acc, e) => {
     if (!acc[e.user_id] || e.entry_date > acc[e.user_id]) acc[e.user_id] = e.entry_date;
@@ -147,12 +286,12 @@ export default function AdminReports() {
     const last = lastEntryByUser[p.id];
     return !last || last < thirtyDaysAgo;
   }).map(p => ({
-    name:        p.full_name || '—',
-    business:    p.business_name || '—',
-    mobile:      p.mobile || '—',
-    plan:        p.plan || '—',
-    status:      p.status || '—',
-    lastEntry:   lastEntryByUser[p.id] ? format(parseISO(lastEntryByUser[p.id]), 'dd/MM/yyyy') : 'Never',
+    name:      p.full_name || '—',
+    business:  p.business_name || '—',
+    mobile:    p.mobile || '—',
+    plan:      p.plan || '—',
+    status:    p.status || '—',
+    lastEntry: lastEntryByUser[p.id] ? format(parseISO(lastEntryByUser[p.id]), 'dd/MM/yyyy') : 'Never',
   }));
 
   // ── CSV exports ────────────────────────────────────────────────────────────
@@ -186,10 +325,20 @@ export default function AdminReports() {
     exportToCSV(inactiveUsers, 'inactive_users.csv');
   };
 
-  // ── Tab nav ────────────────────────────────────────────────────────────────
+  const handleExportPDF = () => {
+    if (filtered.length === 0 && inactiveUsers.length === 0) {
+      alert('No data to export');
+      return;
+    }
+    exportAdminPDF({
+      filtered, operatorStats, pieData, dailyData, inactiveUsers,
+      dateFrom, dateTo, totalRevenue, totalProfit, totalPending, totalAmount, collectionRate
+    });
+  };
+
   const tabs = [
-    { id: 'overview',  label: 'Overview',        icon: <TrendingUp size={14} /> },
-    { id: 'operators', label: 'Top Operators',   icon: <Trophy size={14} /> },
+    { id: 'overview',  label: 'Overview',      icon: <TrendingUp size={14} /> },
+    { id: 'operators', label: 'Top Operators',  icon: <Trophy size={14} /> },
     { id: 'inactive',  label: `Inactive Users (${inactiveUsers.length})`, icon: <UserX size={14} /> },
   ];
 
@@ -200,9 +349,24 @@ export default function AdminReports() {
           <h1 className="page-title">Platform Reports</h1>
           <p className="page-subtitle">Revenue and performance across all operators</p>
         </div>
-        <button className="btn btn-secondary" onClick={handleExportEntries} style={{ gap: 8 }}>
-          <Download size={15} /> Export Entries CSV
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn-secondary" onClick={handleExportEntries} style={{ gap: 8 }}>
+            <Download size={15} /> Export CSV
+          </button>
+          <button
+            className="btn"
+            onClick={handleExportPDF}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              background: '#10b981', color: '#fff', border: 'none',
+              padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer'
+            }}
+            onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
+            onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+          >
+            <FileText size={15} /> Export PDF
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -231,11 +395,7 @@ export default function AdminReports() {
       {/* Tab switcher */}
       <div className="admin-reports-tabs" style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
         {tabs.map(tab => (
-          <button
-            key={tab.id}
-            className={`btn ${activeTab === tab.id ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setActiveTab(tab.id)}
-          >
+          <button key={tab.id} className={`btn ${activeTab === tab.id ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setActiveTab(tab.id)}>
             {tab.icon} {tab.label}
           </button>
         ))}
@@ -247,15 +407,14 @@ export default function AdminReports() {
         </div>
       ) : (
         <>
-          {/* ── OVERVIEW TAB ──────────────────────────────────────────────── */}
           {activeTab === 'overview' && (
             <>
               <div className="stats-grid" style={{ marginBottom: 20 }}>
-                <StatBox label="Total Revenue"     value={`Rs.${totalRevenue.toLocaleString('en-IN')}`} color="var(--brand)" />
-                <StatBox label="Total Profit"      value={`Rs.${totalProfit.toLocaleString('en-IN')}`}  color="var(--success)" />
-                <StatBox label="Total Pending"     value={`Rs.${totalPending.toLocaleString('en-IN')}`} color="var(--danger)" />
-                <StatBox label="Collection Rate"   value={`${collectionRate}%`}                         color="var(--warning)" />
-                <StatBox label="Total Entries"     value={filtered.length}                              color="var(--ink-600)" />
+                <StatBox label="Total Revenue"   value={`Rs.${totalRevenue.toLocaleString('en-IN')}`} color="var(--brand)" />
+                <StatBox label="Total Profit"    value={`Rs.${totalProfit.toLocaleString('en-IN')}`}  color="var(--success)" />
+                <StatBox label="Total Pending"   value={`Rs.${totalPending.toLocaleString('en-IN')}`} color="var(--danger)" />
+                <StatBox label="Collection Rate" value={`${collectionRate}%`}                         color="var(--warning)" />
+                <StatBox label="Total Entries"   value={filtered.length}                              color="var(--ink-600)" />
               </div>
 
               <div className="admin-charts-row1" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
@@ -314,7 +473,6 @@ export default function AdminReports() {
             </>
           )}
 
-          {/* ── TOP OPERATORS TAB ─────────────────────────────────────────── */}
           {activeTab === 'operators' && (
             <div className="card">
               <div className="card-header">
@@ -330,22 +488,15 @@ export default function AdminReports() {
                   <table>
                     <thead>
                       <tr>
-                        <th>Rank</th>
-                        <th>Operator</th>
-                        <th>Entries</th>
-                        <th>Revenue</th>
-                        <th>Pending</th>
-                        <th>Collection Rate</th>
+                        <th>Rank</th><th>Operator</th><th>Entries</th>
+                        <th>Revenue</th><th>Pending</th><th>Collection Rate</th>
                       </tr>
                     </thead>
                     <tbody>
                       {operatorStats.map((o, i) => (
                         <tr key={o.name}>
                           <td>
-                            <span style={{
-                              fontWeight: 800, fontSize: 15,
-                              color: i === 0 ? '#f59e0b' : i === 1 ? '#94a3b8' : i === 2 ? '#b45309' : 'var(--ink-400)'
-                            }}>
+                            <span style={{ fontWeight: 800, fontSize: 15, color: i === 0 ? '#f59e0b' : i === 1 ? '#94a3b8' : i === 2 ? '#b45309' : 'var(--ink-400)' }}>
                               {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i+1}`}
                             </span>
                           </td>
@@ -370,7 +521,6 @@ export default function AdminReports() {
             </div>
           )}
 
-          {/* ── INACTIVE USERS TAB ────────────────────────────────────────── */}
           {activeTab === 'inactive' && (
             <div className="card">
               <div className="card-header">
@@ -386,12 +536,8 @@ export default function AdminReports() {
                   <table>
                     <thead>
                       <tr>
-                        <th>Name</th>
-                        <th>Business</th>
-                        <th>Mobile</th>
-                        <th>Plan</th>
-                        <th>Status</th>
-                        <th>Last Entry</th>
+                        <th>Name</th><th>Business</th><th>Mobile</th>
+                        <th>Plan</th><th>Status</th><th>Last Entry</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -413,6 +559,7 @@ export default function AdminReports() {
           )}
         </>
       )}
+
       <style>{`
         @media (max-width: 768px) {
           .admin-reports-filter-row { gap: 10px !important; }

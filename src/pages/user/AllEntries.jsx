@@ -5,7 +5,7 @@ import { supabase } from '../../lib/supabase';
 import { getServerTimestamp, getServerDate } from '../../hooks/useServerTime';
 import { exportEntriesToCSV } from '../../utils/csvExport';
 import { toast } from 'sonner';
-import { Search, Eye, Pencil, Trash2, X, ChevronLeft, ChevronRight, Download, RefreshCw } from 'lucide-react';
+import { Search, Eye, Pencil, Trash2, X, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import { format } from 'date-fns';
 
 const ITEMS_PER_PAGE = 20;
@@ -225,7 +225,10 @@ export default function AllEntries() {
         .order('created_at', { ascending: false });
       return data || [];
     },
-    enabled: !!user?.id
+    enabled: !!user?.id,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: false
   });
 
   // Fetch all service definitions once — used to resolve field IDs → labels
@@ -302,16 +305,6 @@ export default function AllEntries() {
           <p className="page-subtitle">{filtered.length} of {entries.length} entries</p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button
-            onClick={refetch}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, padding: '8px 16px', borderRadius: 10, cursor: 'pointer',
-              background: 'var(--ink-100)', color: 'var(--ink-600)', border: '1px solid var(--ink-200)'
-            }}
-            title="Refresh entries"
-          >
-            <RefreshCw size={15} /> Refresh
-          </button>
           <button
             onClick={() => {
               if (filtered.length === 0) {

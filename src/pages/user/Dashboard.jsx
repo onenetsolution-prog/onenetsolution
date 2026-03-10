@@ -4,7 +4,7 @@ import { useImpersonation } from '../../contexts/ImpersonationContext';
 import { supabase } from '../../lib/supabase';
 import { getServerDate, getServerDateObject } from '../../hooks/useServerTime';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
-import { FileText, Clock, CreditCard, TrendingUp, AlertCircle, CalendarDays, RefreshCw } from 'lucide-react';
+import { FileText, Clock, CreditCard, TrendingUp, AlertCircle, CalendarDays } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAppSettings } from '../../hooks/useAppSettings';
 import UserPopupNotification from '../../components/UserPopupNotification';
@@ -391,7 +391,8 @@ export default function Dashboard() {
     },
     enabled: !!queryUserId,
     staleTime: 0,
-    refetchOnWindowFocus: true
+    gcTime: 0,
+    refetchOnWindowFocus: false
   });
 
   const { data: recentEntries = [], isLoading: loadingRecent, refetch: refetchRecent } = useQuery({
@@ -403,7 +404,8 @@ export default function Dashboard() {
     },
     enabled: !!queryUserId,
     staleTime: 0,
-    refetchOnWindowFocus: true
+    gcTime: 0,
+    refetchOnWindowFocus: false
   });
 
   const { data: todayEntries = [], isLoading: loadingToday, refetch: refetchToday } = useQuery({
@@ -415,7 +417,8 @@ export default function Dashboard() {
     },
     enabled: !!queryUserId,
     staleTime: 0,
-    refetchOnWindowFocus: true
+    gcTime: 0,
+    refetchOnWindowFocus: false
   });
 
   const { data: notifications = [] } = useQuery({
@@ -495,9 +498,6 @@ export default function Dashboard() {
                 <span className="db3-name-first">{nameFirst}</span>{nameRest}
               </div>
             </div>
-            <button onClick={() => Promise.all([refetchMonth(), refetchRecent(), refetchToday()])} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, padding: '8px 16px', borderRadius: 10, cursor: 'pointer', background: 'var(--ink-100)', color: 'var(--ink-600)', border: '1px solid var(--ink-200)' }} title="Refresh dashboard">
-              <RefreshCw size={15} /> Refresh
-            </button>
           </div>
 
           {/* ── Stats ── */}

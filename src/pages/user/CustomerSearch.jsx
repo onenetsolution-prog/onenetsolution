@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import {
   Search, ChevronDown, ChevronUp, User, Phone,
-  Calendar, AlertCircle, CheckCircle2, Clock, XCircle, MessageCircle, RefreshCw
+  Calendar, AlertCircle, CheckCircle2, Clock, XCircle, MessageCircle
 } from 'lucide-react';
 import { format, formatDistanceToNow, parseISO } from 'date-fns';
 
@@ -229,7 +229,10 @@ export default function CustomerSearch() {
         .eq('user_id', user.id).order('created_at', { ascending: false });
       return data || [];
     },
-    enabled: !!user?.id
+    enabled: !!user?.id,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: false
   });
 
   // Fetch services to resolve field_id → field_label
@@ -281,9 +284,6 @@ export default function CustomerSearch() {
           <h1 className="page-title">Customer Search</h1>
           <p className="page-subtitle">Search across all customer records</p>
         </div>
-        <button onClick={refetch} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, padding: '8px 16px', borderRadius: 10, cursor: 'pointer', background: 'var(--ink-100)', color: 'var(--ink-600)', border: '1px solid var(--ink-200)' }} title="Refresh customers">
-          <RefreshCw size={15} /> Refresh
-        </button>
       </div>
 
       <div className="card" style={{ marginBottom: 20 }}>

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
@@ -10,7 +10,7 @@ import {
   BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, Tooltip, ResponsiveContainer
 } from 'recharts';
-import { Download, RefreshCw } from 'lucide-react';
+import { Download, FileText } from 'lucide-react';
 
 const COLORS = ['#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#3b82f6', '#8b5cf6', '#ec4899'];
 
@@ -40,7 +40,9 @@ function ChartCard({ title, children }) {
 export default function Reports() {
   const { user } = useAuth();
   const [dateFrom, setDateFrom] = useState('');
-  const [dateTo,   setDateTo]   = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const reportRef = useRef(null);
 
   const { data: entries = [], isLoading, refetch } = useQuery({
     queryKey: ['reports-entries', user?.id, dateFrom, dateTo],
@@ -52,27 +54,27 @@ export default function Reports() {
       const { data } = await q;
       return data || [];
     },
-    enabled: !!user?.id
+    enabled: !!user?.id,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: false
   });
 
-  const totalEntries  = entries.length;
-  
-  // Memoize all calculations
-  const { totalRevenue, totalReceived, totalPending, totalProfit, pieData, dailyData, workData, payData } = useMemo(() => {
+  const totalEntries = entries.length;
+
+  const { totalRevenue, totalReceived, totalPending, totalProfit, pieData, dailyData, workData, payData, serviceMap } = useMemo(() => {
     const totRevenue  = entries.reduce((s, e) => s + (e.total_cost       || 0), 0);
     const totReceived = entries.reduce((s, e) => s + (e.received_payment || 0), 0);
     const totPending  = entries.reduce((s, e) => s + (e.pending_payment  || 0), 0);
     const totProfit   = entries.reduce((s, e) => s + (e.profit           || 0), 0);
 
-    // Service Distribution
-    const serviceMap = entries.reduce((acc, e) => {
+    const svcMap = entries.reduce((acc, e) => {
       const n = e.service_name || 'Unknown';
       acc[n] = (acc[n] || 0) + 1;
       return acc;
     }, {});
-    const pieChartData = Object.entries(serviceMap).map(([name, value]) => ({ name, value }));
+    const pieChartData = Object.entries(svcMap).map(([name, value]) => ({ name, value }));
 
-    // Daily Revenue
     const dailyMap = entries.reduce((acc, e) => {
       const day = e.entry_date;
       if (!acc[day]) acc[day] = { date: day, revenue: 0, entries: 0 };
@@ -85,7 +87,6 @@ export default function Reports() {
       label: format(parseISO(d.date), 'dd/MM')
     }));
 
-    // Work Status
     const workCounts = entries.reduce((acc, e) => {
       const s = e.work_status || 'pending';
       acc[s] = (acc[s] || 0) + 1;
@@ -97,7 +98,6 @@ export default function Reports() {
       { name: 'Cancelled', value: workCounts['cancelled'] || 0 },
     ];
 
-    // Payment Status
     const payCounts = entries.reduce((acc, e) => {
       const s = e.payment_status || 'pending';
       acc[s] = (acc[s] || 0) + 1;
@@ -109,59 +109,284 @@ export default function Reports() {
       { name: 'Paid',    value: payCounts['paid']           || 0 },
     ];
 
-    return { totalRevenue: totRevenue, totalReceived: totReceived, totalPending: totPending, totalProfit: totProfit, pieData: pieChartData, dailyData: dailyChartData, workData: workChartData, payData: payChartData };
+    return {
+      totalRevenue: totRevenue, totalReceived: totReceived,
+      totalPending: totPending, totalProfit: totProfit,
+      pieData: pieChartData, dailyData: dailyChartData,
+      workData: workChartData, payData: payChartData,
+      serviceMap: svcMap
+    };
   }, [entries]);
+
+  // ─── PDF Export ──────────────────────────────────────────────────────────────
+  const handleExportPDF = async () => {
+    if (entries.length === 0) { toast.error('No data to export'); return; }
+    setExportingPdf(true);
+    toast.info('Generating PDF…');
+
+    try {
+      // Dynamically import heavy libs so bundle stays lean
+      const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
+        import('jspdf'),
+        import('html2canvas'),
+      ]);
+
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const pageW = 210;
+      const pageH = 297;
+      const margin = 14;
+      const contentW = pageW - margin * 2;
+      let y = 0;
+
+      // ── Helpers ──────────────────────────────────────────────────────────────
+      const fmt = (n) => `Rs.${Number(n).toLocaleString('en-IN')}`;
+      const clamp = (needed) => { if (y + needed > pageH - 14) { pdf.addPage(); y = 14; } };
+
+      // ── Header band ──────────────────────────────────────────────────────────
+      pdf.setFillColor(79, 70, 229);
+      pdf.rect(0, 0, pageW, 28, 'F');
+      pdf.setTextColor(255, 255, 255);
+      pdf.setFontSize(16); pdf.setFont('helvetica', 'bold');
+      pdf.text('Business Report', margin, 12);
+      pdf.setFontSize(9); pdf.setFont('helvetica', 'normal');
+      const rangeLabel = dateFrom || dateTo
+        ? `Period: ${dateFrom || '—'}  →  ${dateTo || '—'}`
+        : 'Period: All time';
+      pdf.text(rangeLabel, margin, 20);
+      pdf.text(`Generated: ${format(new Date(), 'dd MMM yyyy, hh:mm a')}`, pageW - margin, 20, { align: 'right' });
+      y = 36;
+
+      // ── KPI cards (5 boxes in a row) ─────────────────────────────────────────
+      const kpis = [
+        { label: 'Total Entries',  value: String(totalEntries) },
+        { label: 'Total Revenue',  value: fmt(totalRevenue)    },
+        { label: 'Received',       value: fmt(totalReceived)   },
+        { label: 'Pending',        value: fmt(totalPending)    },
+        { label: 'Profit',         value: fmt(totalProfit)     },
+      ];
+      const boxW = (contentW - 8) / 5;
+      kpis.forEach((k, i) => {
+        const x = margin + i * (boxW + 2);
+        pdf.setFillColor(245, 247, 255);
+        pdf.roundedRect(x, y, boxW, 22, 3, 3, 'F');
+        pdf.setDrawColor(220, 220, 235);
+        pdf.roundedRect(x, y, boxW, 22, 3, 3, 'S');
+        pdf.setTextColor(100, 100, 130);
+        pdf.setFontSize(7); pdf.setFont('helvetica', 'bold');
+        pdf.text(k.label.toUpperCase(), x + boxW / 2, y + 7, { align: 'center' });
+        pdf.setTextColor(30, 30, 60);
+        pdf.setFontSize(k.value.length > 10 ? 7.5 : 9); pdf.setFont('helvetica', 'bold');
+        pdf.text(k.value, x + boxW / 2, y + 16, { align: 'center' });
+      });
+      y += 30;
+
+      // ── Section title helper ─────────────────────────────────────────────────
+      const sectionTitle = (title) => {
+        clamp(12);
+        pdf.setFillColor(237, 238, 255);
+        pdf.rect(margin, y, contentW, 8, 'F');
+        pdf.setTextColor(79, 70, 229);
+        pdf.setFontSize(9); pdf.setFont('helvetica', 'bold');
+        pdf.text(title, margin + 3, y + 5.5);
+        y += 12;
+      };
+
+      // ── Service Distribution table ───────────────────────────────────────────
+      sectionTitle('Service Distribution');
+      const svcRows = Object.entries(serviceMap).map(([name, count]) => {
+        const rev = entries.filter(e => e.service_name === name).reduce((s, e) => s + (e.received_payment || 0), 0);
+        const pct = totalEntries ? ((count / totalEntries) * 100).toFixed(1) : '0';
+        return [name, String(count), `${pct}%`, fmt(rev)];
+      });
+
+      // Simple manual table
+      const colWidths = [70, 22, 22, 40];
+      const headers = ['Service', 'Count', 'Share', 'Revenue'];
+      const rowH = 7;
+
+      // Header row
+      pdf.setFillColor(79, 70, 229);
+      let cx = margin;
+      headers.forEach((h, i) => {
+        pdf.setFillColor(79, 70, 229);
+        pdf.rect(cx, y, colWidths[i], rowH, 'F');
+        pdf.setTextColor(255, 255, 255);
+        pdf.setFontSize(8); pdf.setFont('helvetica', 'bold');
+        pdf.text(h, cx + 3, y + 5);
+        cx += colWidths[i];
+      });
+      y += rowH;
+
+      svcRows.forEach((row, ri) => {
+        clamp(rowH + 2);
+        cx = margin;
+        pdf.setFillColor(ri % 2 === 0 ? 250 : 244, ri % 2 === 0 ? 250 : 246, ri % 2 === 0 ? 255 : 255);
+        pdf.rect(margin, y, contentW, rowH, 'F');
+        row.forEach((cell, ci) => {
+          pdf.setTextColor(40, 40, 70);
+          pdf.setFontSize(8); pdf.setFont('helvetica', ci === 0 ? 'bold' : 'normal');
+          pdf.text(String(cell), cx + 3, y + 5);
+          cx += colWidths[ci];
+        });
+        y += rowH;
+      });
+      y += 8;
+
+      // ── Daily Revenue table ───────────────────────────────────────────────────
+      if (dailyData.length > 0) {
+        clamp(20);
+        sectionTitle('Daily Revenue Breakdown');
+        const dColW = [30, 40, 30];
+        const dHeaders = ['Date', 'Revenue (Rs.)', 'Entries'];
+
+        cx = margin;
+        dHeaders.forEach((h, i) => {
+          pdf.setFillColor(79, 70, 229);
+          pdf.rect(cx, y, dColW[i], rowH, 'F');
+          pdf.setTextColor(255, 255, 255);
+          pdf.setFontSize(8); pdf.setFont('helvetica', 'bold');
+          pdf.text(h, cx + 3, y + 5);
+          cx += dColW[i];
+        });
+        y += rowH;
+
+        dailyData.forEach((d, ri) => {
+          clamp(rowH + 2);
+          cx = margin;
+          pdf.setFillColor(ri % 2 === 0 ? 250 : 244, ri % 2 === 0 ? 250 : 246, ri % 2 === 0 ? 255 : 255);
+          pdf.rect(margin, y, dColW[0] + dColW[1] + dColW[2], rowH, 'F');
+          [format(parseISO(d.date), 'dd MMM yyyy'), fmt(d.revenue), String(d.entries)].forEach((cell, ci) => {
+            pdf.setTextColor(40, 40, 70);
+            pdf.setFontSize(8); pdf.setFont('helvetica', 'normal');
+            pdf.text(cell, cx + 3, y + 5);
+            cx += dColW[ci];
+          });
+          y += rowH;
+        });
+        y += 8;
+      }
+
+      // ── Status Summary ────────────────────────────────────────────────────────
+      clamp(50);
+      sectionTitle('Status Summary');
+
+      const statusBoxW = (contentW - 6) / 2;
+
+      // Work Status
+      pdf.setFillColor(245, 247, 255);
+      pdf.roundedRect(margin, y, statusBoxW, 38, 3, 3, 'F');
+      pdf.setDrawColor(220, 220, 235);
+      pdf.roundedRect(margin, y, statusBoxW, 38, 3, 3, 'S');
+      pdf.setTextColor(60, 60, 100);
+      pdf.setFontSize(9); pdf.setFont('helvetica', 'bold');
+      pdf.text('Work Status', margin + 4, y + 7);
+      const wColors = [[245,158,11],[16,185,129],[239,68,68]];
+      workData.forEach((w, i) => {
+        const wy = y + 14 + i * 8;
+        pdf.setFillColor(...wColors[i]);
+        pdf.circle(margin + 7, wy + 1.5, 2.5, 'F');
+        pdf.setTextColor(40,40,70);
+        pdf.setFontSize(8); pdf.setFont('helvetica', 'normal');
+        pdf.text(`${w.name}: ${w.value}`, margin + 12, wy + 2.5);
+      });
+
+      // Payment Status
+      const px = margin + statusBoxW + 6;
+      pdf.setFillColor(245, 247, 255);
+      pdf.roundedRect(px, y, statusBoxW, 38, 3, 3, 'F');
+      pdf.roundedRect(px, y, statusBoxW, 38, 3, 3, 'S');
+      pdf.setTextColor(60, 60, 100);
+      pdf.setFontSize(9); pdf.setFont('helvetica', 'bold');
+      pdf.text('Payment Status', px + 4, y + 7);
+      const pColors = [[239,68,68],[245,158,11],[16,185,129]];
+      payData.forEach((p, i) => {
+        const py2 = y + 14 + i * 8;
+        pdf.setFillColor(...pColors[i]);
+        pdf.circle(px + 7, py2 + 1.5, 2.5, 'F');
+        pdf.setTextColor(40,40,70);
+        pdf.setFontSize(8); pdf.setFont('helvetica', 'normal');
+        pdf.text(`${p.name}: ${p.value}`, px + 12, py2 + 2.5);
+      });
+      y += 46;
+
+      // ── Footer ────────────────────────────────────────────────────────────────
+      const totalPages = pdf.internal.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        pdf.setPage(i);
+        pdf.setFillColor(245, 245, 250);
+        pdf.rect(0, pageH - 10, pageW, 10, 'F');
+        pdf.setTextColor(150, 150, 170);
+        pdf.setFontSize(7); pdf.setFont('helvetica', 'normal');
+        pdf.text('Confidential — Generated by your Service App', margin, pageH - 4);
+        pdf.text(`Page ${i} of ${totalPages}`, pageW - margin, pageH - 4, { align: 'right' });
+      }
+
+      pdf.save(`report-${getServerDate()}.pdf`);
+      toast.success('PDF exported successfully');
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to generate PDF');
+    } finally {
+      setExportingPdf(false);
+    }
+  };
+
+  // ─── CSV Export ───────────────────────────────────────────────────────────────
+  const handleExportCSV = () => {
+    if (entries.length === 0) { toast.error('No data to export'); return; }
+    const serviceDataWithRevenue = Object.entries(serviceMap).map(([name, value]) => {
+      const revenue = entries
+        .filter(e => e.service_name === name)
+        .reduce((s, e) => s + (e.received_payment || 0), 0);
+      return { name, value, revenue };
+    });
+    exportReportsToCSV(
+      dailyData,
+      serviceDataWithRevenue,
+      { totalEntries, totalRevenue, totalReceived, totalPending, totalProfit },
+      `reports-${getServerDate()}.csv`
+    );
+    toast.success('CSV exported successfully');
+  };
 
   const empty = <div style={{ height: 240, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink-300)', fontSize: 13 }}>No data in range</div>;
 
   return (
-    <div className="page-container">
+    <div className="page-container" ref={reportRef}>
       <div className="page-header">
         <div>
           <h1 className="page-title">Reports</h1>
           <p className="page-subtitle">Analytics and performance overview</p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
+          {/* Export CSV */}
           <button
-            onClick={refetch}
+            onClick={handleExportCSV}
             style={{
-              display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, padding: '8px 16px', borderRadius: 10, cursor: 'pointer',
-              background: 'var(--ink-100)', color: 'var(--ink-600)', border: '1px solid var(--ink-200)'
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '8px 16px', background: '#4f46e5', color: '#fff',
+              border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer'
             }}
-            title="Refresh reports"
-          >
-            <RefreshCw size={15} /> Refresh
-          </button>
-          <button
-            onClick={() => {
-              if (entries.length === 0) {
-                toast.error('No data to export');
-                return;
-              }
-              const serviceDataWithRevenue = Object.entries(serviceMap).map(([name, value]) => {
-                const revenue = entries
-                  .filter(e => e.service_name === name)
-                  .reduce((s, e) => s + (e.received_payment || 0), 0);
-                return { name, value, revenue };
-              });
-              exportReportsToCSV(
-                dailyData,
-                serviceDataWithRevenue,
-                { totalEntries, totalRevenue, totalReceived, totalPending, totalProfit },
-                `reports-${getServerDate()}.csv`
-              );
-              toast.success('Report exported to CSV');
-            }}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              padding: '10px 16px', background: '#10b981', color: '#fff',
-              border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700,
-              cursor: 'pointer', transition: 'all 0.15s'
-            }}
-            onMouseEnter={e => e.currentTarget.style.opacity = '0.9'}
+            onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
             onMouseLeave={e => e.currentTarget.style.opacity = '1'}
           >
             <Download size={14} /> Export CSV
+          </button>
+
+          {/* Export PDF */}
+          <button
+            onClick={handleExportPDF}
+            disabled={exportingPdf}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '8px 16px', background: exportingPdf ? '#9ca3af' : '#10b981', color: '#fff',
+              border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700,
+              cursor: exportingPdf ? 'not-allowed' : 'pointer'
+            }}
+            onMouseEnter={e => { if (!exportingPdf) e.currentTarget.style.opacity = '0.85'; }}
+            onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+          >
+            <FileText size={14} /> {exportingPdf ? 'Generating…' : 'Export PDF'}
           </button>
         </div>
       </div>
@@ -194,7 +419,6 @@ export default function Reports() {
         </div>
       ) : (
         <>
-          {/* 5 Stat Cards */}
           <div className="reports-stats" style={{ display: 'flex', gap: 14, marginBottom: 20, flexWrap: 'wrap' }}>
             <StatBox label="Total Entries"  value={totalEntries} />
             <StatBox label="Total Revenue"  value={`Rs.${totalRevenue.toLocaleString('en-IN')}`} />
@@ -203,9 +427,7 @@ export default function Reports() {
             <StatBox label="Total Profit"   value={`Rs.${totalProfit.toLocaleString('en-IN')}`} />
           </div>
 
-          {/* Row 1: Service Distribution + Daily Revenue */}
           <div className="reports-charts-row1" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
-
             <ChartCard title="Service Distribution">
               {pieData.length === 0 ? empty : (
                 <div className="pie-chart-container" style={{ height: 260 }}>
@@ -236,12 +458,9 @@ export default function Reports() {
                 </ResponsiveContainer>
               )}
             </ChartCard>
-
           </div>
 
-          {/* Row 2: Work Status + Payment Status */}
           <div className="reports-charts-row2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-
             <ChartCard title="Work Status">
               <ResponsiveContainer width="100%" height={240}>
                 <BarChart data={workData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
@@ -249,9 +468,7 @@ export default function Reports() {
                   <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
                   <Tooltip formatter={(v) => [v, 'Entries']} />
                   <Bar dataKey="value" radius={[6,6,0,0]}>
-                    {workData.map((_, i) => (
-                      <Cell key={i} fill={['#f59e0b','#10b981','#ef4444'][i]} />
-                    ))}
+                    {workData.map((_, i) => <Cell key={i} fill={['#f59e0b','#10b981','#ef4444'][i]} />)}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
@@ -264,17 +481,15 @@ export default function Reports() {
                   <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
                   <Tooltip formatter={(v) => [v, 'Entries']} />
                   <Bar dataKey="value" radius={[6,6,0,0]}>
-                    {payData.map((_, i) => (
-                      <Cell key={i} fill={['#ef4444','#f59e0b','#10b981'][i]} />
-                    ))}
+                    {payData.map((_, i) => <Cell key={i} fill={['#ef4444','#f59e0b','#10b981'][i]} />)}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </ChartCard>
-
           </div>
         </>
       )}
+
       <style>{`
         @media (max-width: 768px) {
           .reports-date-filter { flex-wrap: wrap !important; gap: 10px !important; }
