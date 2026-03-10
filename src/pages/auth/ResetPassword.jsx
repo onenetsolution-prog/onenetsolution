@@ -16,6 +16,9 @@ export default function ResetPassword() {
   const [checkingSession, setCheckingSession] = useState(true);
 
   useEffect(() => {
+    // Disable any auth redirects while on reset password page
+    window.__isResettingPassword = true;
+
     const handleAuthCallback = async () => {
       try {
         // Check for ?code= in URL (newer Supabase PKCE flow)
@@ -65,6 +68,10 @@ export default function ResetPassword() {
     };
 
     handleAuthCallback();
+
+    return () => {
+      window.__isResettingPassword = false;
+    };
   }, []);
 
   const handleSubmit = async (e) => {

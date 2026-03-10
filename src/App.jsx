@@ -136,6 +136,18 @@ function AppRoutesWithServerTime() {
     );
   }
 
+  // Allow reset-password route even when logged in (for password recovery flow)
+  if (window.location.pathname === '/reset-password') {
+    return (
+      <Suspense fallback={<LoadingSpinner />}>
+        <Routes>
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="*" element={<Navigate to="/reset-password" replace />} />
+        </Routes>
+      </Suspense>
+    );
+  }
+
   if (showUserLayout) {
     return (
       <Suspense fallback={<LoadingSpinner />}>
