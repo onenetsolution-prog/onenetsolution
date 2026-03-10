@@ -6,6 +6,7 @@ import { exportReportsToCSV } from '../../utils/csvExport';
 import { getServerDate } from '../../hooks/useServerTime';
 import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
+import jsPDF from 'jspdf';
 import {
   BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, Tooltip, ResponsiveContainer
@@ -119,18 +120,11 @@ export default function Reports() {
   }, [entries]);
 
   // ─── PDF Export ──────────────────────────────────────────────────────────────
-  const handleExportPDF = async () => {
+  const handleExportPDF = () => {
     if (entries.length === 0) { toast.error('No data to export'); return; }
     setExportingPdf(true);
-    toast.info('Generating PDF…');
 
     try {
-      // Dynamically import heavy libs so bundle stays lean
-      const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
-        import('jspdf'),
-        import('html2canvas'),
-      ]);
-
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
       const pageW = 210;
       const pageH = 297;
@@ -138,25 +132,43 @@ export default function Reports() {
       const contentW = pageW - margin * 2;
       let y = 0;
 
-      // ── Helpers ──────────────────────────────────────────────────────────────
       const fmt = (n) => `Rs.${Number(n).toLocaleString('en-IN')}`;
-      const clamp = (needed) => { if (y + needed > pageH - 14) { pdf.addPage(); y = 14; } };
+      const clamp = (needed) => { if (y + needed > pageH - 14) { pdf.addPage(); y = 36; } };
 
-      // ── Header band ──────────────────────────────────────────────────────────
+      // ── Header ───────────────────────────────────────────────────────────────
+      // Navy top bar
+      pdf.setFillColor(17, 24, 76);
+      pdf.rect(0, 0, pageW, 22, 'F');
+      // Indigo accent stripe
       pdf.setFillColor(79, 70, 229);
-      pdf.rect(0, 0, pageW, 28, 'F');
+      pdf.rect(0, 22, pageW, 4, 'F');
+
+      // Brand name
       pdf.setTextColor(255, 255, 255);
-      pdf.setFontSize(16); pdf.setFont('helvetica', 'bold');
-      pdf.text('Business Report', margin, 12);
-      pdf.setFontSize(9); pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(14); pdf.setFont('helvetica', 'bold');
+      pdf.text('ONE NET SOLUTION', margin, 14);
+      // Tagline
+      pdf.setFontSize(7); pdf.setFont('helvetica', 'normal');
+      pdf.text('Your Trusted Service Partner', margin, 20);
+      // Report label right side
+      pdf.setFontSize(8); pdf.setFont('helvetica', 'bold');
+      pdf.text('BUSINESS REPORT', pageW - margin, 11, { align: 'right' });
+      pdf.setFontSize(7); pdf.setFont('helvetica', 'normal');
+      pdf.text(format(new Date(), 'dd MMM yyyy'), pageW - margin, 17, { align: 'right' });
+
+      y = 34;
+
+      // Period + generated
       const rangeLabel = dateFrom || dateTo
         ? `Period: ${dateFrom || '—'}  →  ${dateTo || '—'}`
         : 'Period: All time';
-      pdf.text(rangeLabel, margin, 20);
-      pdf.text(`Generated: ${format(new Date(), 'dd MMM yyyy, hh:mm a')}`, pageW - margin, 20, { align: 'right' });
-      y = 36;
+      pdf.setTextColor(40, 40, 70);
+      pdf.setFontSize(8); pdf.setFont('helvetica', 'normal');
+      pdf.text(rangeLabel, margin, y);
+      pdf.text(`Generated: ${format(new Date(), 'dd MMM yyyy, hh:mm a')}`, pageW - margin, y, { align: 'right' });
+      y += 10;
 
-      // ── KPI cards (5 boxes in a row) ─────────────────────────────────────────
+      // ── KPI cards ────────────────────────────────────────────────────────────
       const kpis = [
         { label: 'Total Entries',  value: String(totalEntries) },
         { label: 'Total Revenue',  value: fmt(totalRevenue)    },
@@ -180,18 +192,21 @@ export default function Reports() {
       });
       y += 30;
 
-      // ── Section title helper ─────────────────────────────────────────────────
+      // ── Section title helper ──────────────────────────────────────────────────
       const sectionTitle = (title) => {
         clamp(12);
         pdf.setFillColor(237, 238, 255);
         pdf.rect(margin, y, contentW, 8, 'F');
+        // left accent bar
+        pdf.setFillColor(79, 70, 229);
+        pdf.rect(margin, y, 2, 8, 'F');
         pdf.setTextColor(79, 70, 229);
         pdf.setFontSize(9); pdf.setFont('helvetica', 'bold');
-        pdf.text(title, margin + 3, y + 5.5);
+        pdf.text(title, margin + 5, y + 5.5);
         y += 12;
       };
 
-      // ── Service Distribution table ───────────────────────────────────────────
+      // ── Service Distribution table ────────────────────────────────────────────
       sectionTitle('Service Distribution');
       const svcRows = Object.entries(serviceMap).map(([name, count]) => {
         const rev = entries.filter(e => e.service_name === name).reduce((s, e) => s + (e.received_payment || 0), 0);
@@ -199,16 +214,13 @@ export default function Reports() {
         return [name, String(count), `${pct}%`, fmt(rev)];
       });
 
-      // Simple manual table
       const colWidths = [70, 22, 22, 40];
       const headers = ['Service', 'Count', 'Share', 'Revenue'];
       const rowH = 7;
 
-      // Header row
-      pdf.setFillColor(79, 70, 229);
       let cx = margin;
       headers.forEach((h, i) => {
-        pdf.setFillColor(79, 70, 229);
+        pdf.setFillColor(17, 24, 76);
         pdf.rect(cx, y, colWidths[i], rowH, 'F');
         pdf.setTextColor(255, 255, 255);
         pdf.setFontSize(8); pdf.setFont('helvetica', 'bold');
@@ -241,7 +253,7 @@ export default function Reports() {
 
         cx = margin;
         dHeaders.forEach((h, i) => {
-          pdf.setFillColor(79, 70, 229);
+          pdf.setFillColor(17, 24, 76);
           pdf.rect(cx, y, dColW[i], rowH, 'F');
           pdf.setTextColor(255, 255, 255);
           pdf.setFontSize(8); pdf.setFont('helvetica', 'bold');
@@ -285,7 +297,7 @@ export default function Reports() {
         const wy = y + 14 + i * 8;
         pdf.setFillColor(...wColors[i]);
         pdf.circle(margin + 7, wy + 1.5, 2.5, 'F');
-        pdf.setTextColor(40,40,70);
+        pdf.setTextColor(40, 40, 70);
         pdf.setFontSize(8); pdf.setFont('helvetica', 'normal');
         pdf.text(`${w.name}: ${w.value}`, margin + 12, wy + 2.5);
       });
@@ -303,25 +315,25 @@ export default function Reports() {
         const py2 = y + 14 + i * 8;
         pdf.setFillColor(...pColors[i]);
         pdf.circle(px + 7, py2 + 1.5, 2.5, 'F');
-        pdf.setTextColor(40,40,70);
+        pdf.setTextColor(40, 40, 70);
         pdf.setFontSize(8); pdf.setFont('helvetica', 'normal');
         pdf.text(`${p.name}: ${p.value}`, px + 12, py2 + 2.5);
       });
       y += 46;
 
-      // ── Footer ────────────────────────────────────────────────────────────────
+      // ── Footer on all pages ───────────────────────────────────────────────────
       const totalPages = pdf.internal.getNumberOfPages();
       for (let i = 1; i <= totalPages; i++) {
         pdf.setPage(i);
-        pdf.setFillColor(245, 245, 250);
+        pdf.setFillColor(17, 24, 76);
         pdf.rect(0, pageH - 10, pageW, 10, 'F');
-        pdf.setTextColor(150, 150, 170);
+        pdf.setTextColor(180, 185, 210);
         pdf.setFontSize(7); pdf.setFont('helvetica', 'normal');
-        pdf.text('Confidential — Generated by your Service App', margin, pageH - 4);
+        pdf.text('One Net Solution  •  Confidential Business Report', margin, pageH - 4);
         pdf.text(`Page ${i} of ${totalPages}`, pageW - margin, pageH - 4, { align: 'right' });
       }
 
-      pdf.save(`report-${getServerDate()}.pdf`);
+      pdf.save(`ONS-report-${getServerDate()}.pdf`);
       toast.success('PDF exported successfully');
     } catch (err) {
       console.error(err);
@@ -344,7 +356,7 @@ export default function Reports() {
       dailyData,
       serviceDataWithRevenue,
       { totalEntries, totalRevenue, totalReceived, totalPending, totalProfit },
-      `reports-${getServerDate()}.csv`
+      `ONS-reports-${getServerDate()}.csv`
     );
     toast.success('CSV exported successfully');
   };
