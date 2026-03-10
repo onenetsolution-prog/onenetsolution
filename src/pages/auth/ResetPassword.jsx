@@ -18,26 +18,38 @@ export default function ResetPassword() {
   useEffect(() => {
     const handleAuthCallback = async () => {
       try {
+        // Check for ?code= in URL (newer Supabase PKCE flow)
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get('code');
+
+        // Check for #access_token in hash (older Supabase flow)
         const hash = window.location.hash;
-        if (hash && hash.includes('access_token')) {
-          const params = new URLSearchParams(hash.substring(1));
-          const accessToken = params.get('access_token');
-          const refreshToken = params.get('refresh_token');
-          const type = params.get('type');
-          if (type === 'recovery' && accessToken) {
-            const { error } = await supabase.auth.setSession({
-              access_token: accessToken,
-              refresh_token: refreshToken || '',
-            });
-            if (error) {
-              setSessionError('This reset link is invalid or has expired. Please request a new one.');
-            } else {
-              setValidSession(true);
-            }
+        const hashParams = new URLSearchParams(hash.substring(1));
+        const accessToken = hashParams.get('access_token');
+        const refreshToken = hashParams.get('refresh_token');
+        const type = hashParams.get('type');
+
+        if (code) {
+          // Handle PKCE code flow
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) {
+            setSessionError('This reset link is invalid or has expired. Please request a new one.');
           } else {
-            setSessionError('Invalid reset link. Please request a new password reset.');
+            setValidSession(true);
+          }
+        } else if (accessToken && type === 'recovery') {
+          // Handle legacy hash flow
+          const { error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken || '',
+          });
+          if (error) {
+            setSessionError('This reset link is invalid or has expired. Please request a new one.');
+          } else {
+            setValidSession(true);
           }
         } else {
+          // Check if already has valid session
           const { data: { session } } = await supabase.auth.getSession();
           if (session) {
             setValidSession(true);
@@ -51,6 +63,7 @@ export default function ResetPassword() {
         setCheckingSession(false);
       }
     };
+
     handleAuthCallback();
   }, []);
 
