@@ -17,7 +17,11 @@ export default function Signup() {
     e.preventDefault();
     setError('');
     if (form.password !== form.confirm) { setError('Passwords do not match.'); return; }
-    if (form.password.length < 6) { setError('Password must be at least 6 characters.'); return; }
+    if (form.password.length < 8) { setError('Password must be at least 8 characters.'); return; }
+    if (!/[A-Z]/.test(form.password)) { setError('Password must contain at least one uppercase letter.'); return; }
+    if (!/[a-z]/.test(form.password)) { setError('Password must contain at least one lowercase letter.'); return; }
+    if (!/[0-9]/.test(form.password)) { setError('Password must contain at least one number.'); return; }
+    if (!/[^A-Za-z0-9]/.test(form.password)) { setError('Password must contain at least one special character (!@#$%^&*).'); return; }
     setLoading(true);
     const { error: err } = await supabase.auth.signUp({
       email: form.email,
@@ -134,7 +138,7 @@ export default function Signup() {
               padding: '14px 16px', borderRadius: 12, marginBottom: 24,
               fontSize: 13, color: 'rgba(255,255,255,0.7)', lineHeight: 1.6,
             }}>
-              Click the link in the email to verify your account. This helps us protect your data and keep your account secure.
+              Account created! Please check your email and click the confirmation link before logging in. This helps us protect your data and keep your account secure.
             </div>
             <div style={{
               fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 20,

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
@@ -37,6 +37,49 @@ function StatusBadge({ status, type }) {
 }
 
 function ViewModal({ entry, onClose }) {
+  // Fetch service definition to resolve field labels
+  const { data: service } = useQuery({
+    queryKey: ['service-definition-view', entry.service_id || entry.service_name, entry.user_id],
+    queryFn: async () => {
+      if (entry.service_id) {
+        const { data } = await supabase
+          .from('custom_services')
+          .select('*')
+          .eq('id', entry.service_id)
+          .eq('user_id', entry.user_id)
+          .single();
+        return data;
+      } else {
+        const { data } = await supabase
+          .from('custom_services')
+          .select('*')
+          .eq('user_id', entry.user_id)
+          .eq('service_name', entry.service_name)
+          .single();
+        return data;
+      }
+    },
+    enabled: !!entry.user_id && (!!entry.service_id || !!entry.service_name)
+  });
+
+  // Resolve custom field values with proper labels
+  const customFields = useMemo(() => {
+    if (!entry.custom_field_values || Object.keys(entry.custom_field_values).length === 0) return [];
+    
+    return Object.entries(entry.custom_field_values).map(([key, value]) => {
+      let label = key;
+      
+      if (service?.fields) {
+        const fieldDef = service.fields.find(f => f.field_id === key);
+        if (fieldDef) {
+          label = fieldDef.field_label;
+        }
+      }
+      
+      return { label, value: String(value) };
+    });
+  }, [entry.custom_field_values, service]);
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-card" onClick={e => e.stopPropagation()}>
@@ -64,14 +107,14 @@ function ViewModal({ entry, onClose }) {
               </div>
             ))}
           </div>
-          {entry.custom_field_values && Object.keys(entry.custom_field_values).length > 0 && (
+          {customFields.length > 0 && (
             <div style={{ marginTop: 12 }}>
-              <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', color: 'var(--ink-400)', marginBottom: 8 }}>Custom Fields</div>
+              <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', color: 'var(--ink-400)', marginBottom: 8 }}>Service Fields</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                {Object.entries(entry.custom_field_values).map(([k, v]) => (
-                  <div key={k} style={{ background: 'var(--ink-50)', borderRadius: 8, padding: '10px 12px' }}>
-                    <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', color: 'var(--ink-400)', marginBottom: 3 }}>{k}</div>
-                    <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink-800)' }}>{v || '—'}</div>
+                {customFields.map(({ label, value }, i) => (
+                  <div key={i} style={{ background: 'var(--ink-50)', borderRadius: 8, padding: '10px 12px' }}>
+                    <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', color: 'var(--ink-400)', marginBottom: 3 }}>{label}</div>
+                    <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink-800)' }}>{value || '—'}</div>
                   </div>
                 ))}
               </div>
@@ -108,35 +151,120 @@ function FullEditModal({ entry, onClose, onSave, isSaving }) {
     custom_field_values: entry.custom_field_values || {},
   });
 
+  // Fetch service definition for this entry to resolve field labels and types
+  const { data: service } = useQuery({
+    queryKey: ['service-definition', entry.service_id || entry.service_name, entry.user_id],
+    queryFn: async () => {
+      if (entry.service_id) {
+        const { data } = await supabase
+          .from('custom_services')
+          .select('*')
+          .eq('id', entry.service_id)
+          .eq('user_id', entry.user_id)
+          .single();
+        return data;
+      } else {
+        const { data } = await supabase
+          .from('custom_services')
+          .select('*')
+          .eq('user_id', entry.user_id)
+          .eq('service_name', entry.service_name)
+          .single();
+        return data;
+      }
+    },
+    enabled: !!entry.user_id && (!!entry.service_id || !!entry.service_name)
+  });
+
+  // Resolve field labels and types from service definition
+  const serviceFields = useMemo(() => {
+    if (!service?.fields) return [];
+    return service.fields;
+  }, [service]);
+
+  // Auto-initialize all service fields in form when service definition loads
+  useEffect(() => {
+    if (serviceFields.length > 0) {
+      setForm(prevForm => {
+        const initializedValues = {};
+        
+        // Initialize ALL service fields with empty string as default
+        serviceFields.forEach(field => {
+          initializedValues[field.field_id] = '';
+        });
+        
+        // Overlay existing entry values on top (user-filled values)
+        if (entry.custom_field_values && Object.keys(entry.custom_field_values).length > 0) {
+          Object.assign(initializedValues, entry.custom_field_values);
+        }
+        
+        return {
+          ...prevForm,
+          custom_field_values: initializedValues
+        };
+      });
+    }
+  }, [serviceFields, entry.custom_field_values, entry.user_id]);
+
+  // Resolve field label from field_id
+  const getFieldLabel = (fieldId) => {
+    const fieldDef = serviceFields.find(f => f.field_id === fieldId);
+    return fieldDef?.field_label || fieldId;
+  };
+
+  // Get field definition by field_id
+  const getFieldDef = (fieldId) => {
+    return serviceFields.find(f => f.field_id === fieldId);
+  };
+
   const set = (key, val) => setForm(p => ({ ...p, [key]: val }));
 
+  const handleFieldChange = (fieldId, value) => {
+    setForm(p => ({
+      ...p,
+      custom_field_values: {
+        ...p.custom_field_values,
+        [fieldId]: value
+      }
+    }));
+
+    // Auto-populate pricing if this is a pricing field
+    const fieldDef = getFieldDef(fieldId);
+    if (fieldDef?.field_id === service?.pricing_field_id && service?.application_type_pricing?.[value]) {
+      const pricing = service.application_type_pricing[value];
+      setForm(p => ({
+        ...p,
+        total_cost: pricing.total_cost,
+        service_cost: pricing.service_cost,
+      }));
+    }
+  };
+
   const handleSave = () => {
-    const total    = parseFloat(form.total_cost) || 0;
-    const service  = parseFloat(form.service_cost) || 0;
+    const total = parseFloat(form.total_cost) || 0;
+    const serviceCost = parseFloat(form.service_cost) || 0;
     const received = form.payment_status === 'paid'
       ? total
       : form.payment_status === 'pending'
         ? 0
         : parseFloat(form.received_payment) || 0;
     onSave({
-      customer_name:    form.customer_name.toUpperCase(),
-      fathers_name:     form.fathers_name.toUpperCase(),
-      mobile:           form.mobile,
-      entry_date:       form.entry_date,
-      service_name:     form.service_name,
-      work_status:      form.work_status,
-      payment_status:   form.payment_status,
-      total_cost:       total,
-      service_cost:     service,
+      customer_name: form.customer_name.toUpperCase(),
+      fathers_name: form.fathers_name.toUpperCase(),
+      mobile: form.mobile,
+      entry_date: form.entry_date,
+      service_name: form.service_name,
+      work_status: form.work_status,
+      payment_status: form.payment_status,
+      total_cost: total,
+      service_cost: serviceCost,
       received_payment: received,
-      pending_payment:  Math.max(0, total - received),
-      profit:           Math.max(0, received - service),
-      remark:           form.remark.toUpperCase(),
+      pending_payment: Math.max(0, total - received),
+      profit: Math.max(0, received - serviceCost),
+      remark: form.remark.toUpperCase(),
       custom_field_values: form.custom_field_values,
     });
   };
-
-  const customKeys = Object.keys(form.custom_field_values);
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -181,17 +309,59 @@ function FullEditModal({ entry, onClose, onSave, isSaving }) {
             </div>
           </div>
 
-          {/* Custom Fields */}
-          {customKeys.length > 0 && (
+          {/* Custom Fields — show ALL available fields from service definition */}
+          {serviceFields.length > 0 && (
             <div style={sectionStyle}>
               <div style={sectionTitle}>Service Fields</div>
               <div className="form-row" style={{ flexWrap: 'wrap' }}>
-                {customKeys.map(key => (
-                  <div className="form-group" key={key} style={{ flex: '1 1 45%' }}>
-                    <label className="form-label">{key}</label>
-                    <input className="form-input" value={form.custom_field_values[key] || ''} onChange={e => setForm(p => ({ ...p, custom_field_values: { ...p.custom_field_values, [key]: e.target.value } }))} />
-                  </div>
-                ))}
+                {serviceFields.map(field => {
+                  const fieldValue = form.custom_field_values[field.field_id] || '';
+                  const fieldType = field.field_type || 'text';
+
+                  return (
+                    <div 
+                      className="form-group" 
+                      key={field.field_id} 
+                      style={{ 
+                        flex: fieldType === 'textarea' ? '1 1 100%' : '1 1 45%',
+                        marginBottom: fieldType === 'textarea' ? 12 : 0
+                      }}
+                    >
+                      <label className="form-label">
+                        {field.field_label}
+                        {field.is_required && <span style={{ color: 'var(--danger)', marginLeft: 3 }}>*</span>}
+                      </label>
+                      {fieldType === 'dropdown' ? (
+                        <select 
+                          className="form-select"
+                          value={fieldValue}
+                          onChange={e => handleFieldChange(field.field_id, e.target.value)}
+                        >
+                          <option value="">-- Select --</option>
+                          {field.field_options?.map(opt => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+                      ) : fieldType === 'textarea' ? (
+                        <textarea 
+                          className="form-input" 
+                          style={{ minHeight: 80, resize: 'vertical' }}
+                          placeholder={field.placeholder || 'Enter your answer'}
+                          value={fieldValue}
+                          onChange={e => handleFieldChange(field.field_id, e.target.value)}
+                        />
+                      ) : (
+                        <input 
+                          type={fieldType === 'number' ? 'number' : fieldType === 'date' ? 'date' : 'text'}
+                          className="form-input"
+                          placeholder={field.placeholder || ''}
+                          value={fieldValue}
+                          onChange={e => handleFieldChange(field.field_id, e.target.value)}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -281,9 +451,12 @@ export default function AdminEntries() {
     queryFn: async () => {
       const { data } = await supabase
         .from('service_entries')
-        .select('*, profiles(full_name, business_name)')
+        .select('*, profiles(full_name, business_name, id)')
         .order('created_at', { ascending: false });
-      return data || [];
+      return (data || []).map(entry => ({
+        ...entry,
+        user_id: entry.profiles?.id
+      }));
     },
     enabled: !!isAdmin
   });

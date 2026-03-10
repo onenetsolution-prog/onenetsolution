@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { Lock, Eye, EyeOff, Zap, CheckCircle } from 'lucide-react';
@@ -11,12 +11,58 @@ export default function ResetPassword() {
   const [loading,   setLoading]   = useState(false);
   const [done,      setDone]      = useState(false);
   const [error,     setError]     = useState('');
+  const [validSession, setValidSession] = useState(false);
+  const [sessionError, setSessionError] = useState('');
+  const [checkingSession, setCheckingSession] = useState(true);
+
+  useEffect(() => {
+    const handleAuthCallback = async () => {
+      try {
+        const hash = window.location.hash;
+        if (hash && hash.includes('access_token')) {
+          const params = new URLSearchParams(hash.substring(1));
+          const accessToken = params.get('access_token');
+          const refreshToken = params.get('refresh_token');
+          const type = params.get('type');
+          if (type === 'recovery' && accessToken) {
+            const { error } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken || '',
+            });
+            if (error) {
+              setSessionError('This reset link is invalid or has expired. Please request a new one.');
+            } else {
+              setValidSession(true);
+            }
+          } else {
+            setSessionError('Invalid reset link. Please request a new password reset.');
+          }
+        } else {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+            setValidSession(true);
+          } else {
+            setSessionError('Invalid or expired reset link. Please request a new one.');
+          }
+        }
+      } catch (err) {
+        setSessionError('Something went wrong. Please request a new reset link.');
+      } finally {
+        setCheckingSession(false);
+      }
+    };
+    handleAuthCallback();
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     if (password !== confirm) { setError('Passwords do not match.'); return; }
-    if (password.length < 6)  { setError('Password must be at least 6 characters.'); return; }
+    if (password.length < 8) { setError('Password must be at least 8 characters.'); return; }
+    if (!/[A-Z]/.test(password)) { setError('Must contain at least one uppercase letter.'); return; }
+    if (!/[a-z]/.test(password)) { setError('Must contain at least one lowercase letter.'); return; }
+    if (!/[0-9]/.test(password)) { setError('Must contain at least one number.'); return; }
+    if (!/[^A-Za-z0-9]/.test(password)) { setError('Must contain at least one special character (!@#$%^&*).'); return; }
     setLoading(true);
     const { error: err } = await supabase.auth.updateUser({ password });
     if (err) { setError(err.message); setLoading(false); return; }
@@ -24,9 +70,15 @@ export default function ResetPassword() {
     setTimeout(() => navigate('/login', { replace: true }), 3000);
   };
 
-  const strength = password.length >= 12 ? 4 : password.length >= 8 ? 3 : password.length >= 6 ? 2 : password.length > 0 ? 1 : 0;
+  const hasUpper = /[A-Z]/.test(password);
+  const hasLower = /[a-z]/.test(password);
+  const hasNumber = /[0-9]/.test(password);
+  const hasSpecial = /[^A-Za-z0-9]/.test(password);
+  const hasLength = password.length >= 8;
+  const metCount = [hasUpper, hasLower, hasNumber, hasSpecial, hasLength].filter(Boolean).length;
+  const strength = password.length === 0 ? 0 : metCount <= 2 ? 1 : metCount === 3 ? 2 : metCount === 4 ? 3 : 4;
   const strengthColor = strength <= 1 ? '#ef4444' : strength === 2 ? '#f59e0b' : strength === 3 ? '#6366f1' : '#22c55e';
-  const strengthLabel = password.length === 0 ? 'Enter a password' : password.length < 6 ? 'Too short' : password.length < 8 ? 'Weak' : password.length < 12 ? 'Good' : 'Strong';
+  const strengthLabel = password.length === 0 ? 'Enter a password' : strength <= 1 ? 'Too weak' : strength === 2 ? 'Weak' : strength === 3 ? 'Good' : 'Strong';
 
   return (
     <div style={{ minHeight: '100vh', background: '#0f0f1a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'DM Sans', sans-serif", position: 'relative', overflow: 'hidden', padding: '24px 16px' }}>
@@ -49,7 +101,20 @@ export default function ResetPassword() {
             </p>
           </div>
 
-          {done ? (
+          {checkingSession ? (
+            <div style={{ textAlign: 'center', padding: '20px 0' }}>
+              <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>Verifying reset link...</p>
+            </div>
+          ) : sessionError ? (
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', color: '#fca5a5', padding: '14px', borderRadius: 12, fontSize: 13, fontWeight: 600, marginBottom: 20 }}>
+                ⚠ {sessionError}
+              </div>
+              <a href="/forgot-password" style={{ fontSize: 13, color: '#818cf8', fontWeight: 600, textDecoration: 'none' }}>
+                Request a new reset link
+              </a>
+            </div>
+          ) : done ? (
             <div style={{ textAlign: 'center' }}>
               <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
                 <CheckCircle size={28} color="#4ade80" />

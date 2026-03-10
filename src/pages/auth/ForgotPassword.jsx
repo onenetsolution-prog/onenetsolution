@@ -12,8 +12,11 @@ export default function ForgotPassword() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(''); setLoading(true);
+    const redirectUrl = window.location.hostname === 'localhost'
+      ? `${window.location.origin}/reset-password`
+      : 'https://onenetsolution.vercel.app/reset-password';
     const { error: err } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: redirectUrl,
     });
     if (err) { setError(err.message); setLoading(false); return; }
     setSent(true); setLoading(false);
