@@ -50,8 +50,6 @@ export default function Login() {
   const [showPw,   setShowPw]   = useState(false);
   const [loading,  setLoading]  = useState(false);
   const [error,    setError]    = useState('');
-  const [cursor,   setCursor]   = useState({ x: -100, y: -100 });
-  const [ring,     setRing]     = useState({ x: -100, y: -100 });
   const [pwValidation, setPwValidation] = useState({
     hasMinLength: false,
     hasUppercase: false,
@@ -78,20 +76,50 @@ export default function Login() {
 
   // Mouse tracking for custom cursor
   useEffect(() => {
-    let rx = -100, ry = -100;
+    let mx = -100, my = -100, rx = -100, ry = -100;
+    let running = true;
+
+    const dotEl = document.querySelector('.lg-cursor-dot');
+    const ringEl = document.querySelector('.lg-cursor-ring');
+
     const onMove = (e) => {
-      setCursor({ x: e.clientX, y: e.clientY });
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = requestAnimationFrame(() => {
-        rx += (e.clientX - rx) * 0.14;
-        ry += (e.clientY - ry) * 0.14;
-        setRing({ x: rx, y: ry });
-      });
+      mx = e.clientX;
+      my = e.clientY;
+
+      // Check if hovering over interactive elements
+      const target = document.elementFromPoint(mx, my);
+      const isInteractive = target?.closest('a, button, input, label, .lg-inp, .lg-eye, [role="button"]');
+      
+      if (isInteractive) {
+        dotEl?.classList.add('hover');
+        ringEl?.classList.add('hover');
+      } else {
+        dotEl?.classList.remove('hover');
+        ringEl?.classList.remove('hover');
+      }
     };
+
+    const animate = () => {
+      if (!running) return;
+      
+      // Smooth interpolation for ring with easing
+      rx += (mx - rx) * 0.06;
+      ry += (my - ry) * 0.06;
+      
+      // Direct DOM updates for better performance
+      if (dotEl) dotEl.style.transform = `translate(${mx}px, ${my}px) translate(-50%, -50%)`;
+      if (ringEl) ringEl.style.transform = `translate(${rx}px, ${ry}px) translate(-50%, -50%)`;
+      
+      rafRef.current = requestAnimationFrame(animate);
+    };
+
     window.addEventListener('mousemove', onMove);
-    return () => { 
-      window.removeEventListener('mousemove', onMove); 
-      cancelAnimationFrame(rafRef.current); 
+    rafRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      running = false;
+      window.removeEventListener('mousemove', onMove);
+      cancelAnimationFrame(rafRef.current);
     };
   }, []);
 
@@ -157,8 +185,8 @@ export default function Login() {
   return (
     <>
       {/* Custom cursor */}
-      <div className="lg-cursor-dot"  style={{ left: cursor.x, top: cursor.y }} />
-      <div className="lg-cursor-ring" style={{ left: ring.x, top: ring.y }} />
+      <div className="lg-cursor-dot" />
+      <div className="lg-cursor-ring" />
 
       <div className="lg-root">
 
