@@ -341,21 +341,21 @@ export default function AdminDashboard() {
       value: Rs(totalPending),
       sub: 'across all operators',
       color: 'var(--danger)',
-      onClick: () => navigate('/admin/entries?payment_status=pending'), // → pending payments
+      onClick: () => navigate('/admin/pending-payments'), // → pending payments
     },
     {
       icon: Clock, label: 'Pending Work',
       value: totalPendingWork,
       sub: 'entries awaiting completion',
       color: 'var(--warning)',
-      onClick: () => navigate('/admin/entries?work_status=pending'),    // → pending work
+      onClick: () => navigate('/admin/pending-work'),    // → pending work
     },
     {
       icon: Activity, label: 'Active Users',
       value: activeUsers.length,
       sub: `${trialUsers.length} on trial`,
       color: '#8b5cf6',
-      onClick: () => navigate('/admin/users?account_status=active'),    // → active users
+      onClick: () => navigate('/admin/users'),    // → users
     },
   ];
 

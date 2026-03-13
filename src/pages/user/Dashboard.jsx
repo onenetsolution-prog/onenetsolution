@@ -452,29 +452,29 @@ export default function Dashboard() {
     {
       icon: CalendarDays, value: todayCount,
       label: "Today's Entries", sub: `${format(getServerDateObject(),'dd MMM')} entries`,
-      color: '#6366f1', barColor: '#6366f1,#a5b4fc', onClick: null, hint: null,
+      color: '#6366f1', barColor: '#6366f1,#a5b4fc', onClick: () => navigate('/entries'), hint: 'View today',
     },
     {
       icon: FileText, value: totalEntries,
       label: 'Total Entries', sub: `${totalEntries} this month`,
-      color: '#8b5cf6', barColor: '#7c3aed,#a78bfa', onClick: null, hint: null,
+      color: '#8b5cf6', barColor: '#7c3aed,#a78bfa', onClick: () => navigate('/entries'), hint: 'View all',
     },
     {
       icon: TrendingUp, value: '₹' + monthRevenue.toLocaleString('en-IN'),
       label: 'Month Revenue', sub: 'received this month',
-      color: '#06b6d4', barColor: '#0891b2,#67e8f9', onClick: null, hint: null,
+      color: '#06b6d4', barColor: '#0891b2,#67e8f9', onClick: () => navigate('/reports'), hint: 'View details',
     },
     {
       icon: CreditCard, value: '₹' + totalPending.toLocaleString('en-IN'),
       label: 'Total Pending', sub: 'across all entries',
       color: '#ef4444', barColor: '#dc2626,#fca5a5',
-      onClick: () => navigate('/entries?payment_status=pending'), hint: 'View dues',
+      onClick: () => navigate('/pending-payments'), hint: 'View dues',
     },
     {
       icon: Clock, value: pendingWork,
       label: 'Pending Work', sub: 'awaiting completion',
       color: '#f59e0b', barColor: '#d97706,#fcd34d',
-      onClick: () => navigate('/entries?work_status=pending'), hint: 'View tasks',
+      onClick: () => navigate('/pending-work'), hint: 'View tasks',
     },
   ];
 
